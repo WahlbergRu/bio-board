@@ -4,7 +4,7 @@ export async function* sendChat(
   message: string,
   history: ChatMessage[],
 ): AsyncGenerator<string, void, unknown> {
-  const res = await fetch('/api/chat', {
+  const res = await fetch('/api/chat/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message, history }),
