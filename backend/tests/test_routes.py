@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
 import io
 
-from app.main import app
+from app.main import app, rate_limits
 
 
 @pytest.fixture
@@ -13,7 +13,10 @@ def client():
     """Create test client with clean state."""
     app.state.store.tasks.clear()
     app.state.store.save()
+    rate_limits.clear()
     yield TestClient(app)
+    app.state.store.tasks.clear()
+    app.state.store.save()
 
 
 # ── Health ────────────────────────────────────────────────────────
