@@ -1,16 +1,15 @@
 """Plan-level routes: view, seed, reset."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Request, Depends
 
-from app.models import SeedTask, Task
+from app.models import Task, SeedTask
 from app.store import PlanState
 
 router = APIRouter(prefix="/api/plan", tags=["plan"])
 
 
-def get_store() -> PlanState:
-    from app.main import app_state
-    return app_state["store"]
+def get_store(request: Request) -> PlanState:
+    return request.app.state.store
 
 
 _DEMO_TASKS: list[SeedTask] = [
@@ -40,7 +39,8 @@ def seed_plan(store: PlanState = Depends(get_store)):
     return store.get_all_tasks()
 
 
-@router.delete("/reset", status_code=204)
+@router.delete("/reset")
 def reset_plan(store: PlanState = Depends(get_store)):
     store.tasks.clear()
     store.save()
+    return {"status": "reset"}

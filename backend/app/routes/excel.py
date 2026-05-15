@@ -1,10 +1,9 @@
 """Excel import/export routes."""
 
 from datetime import datetime, timedelta
-from tempfile import NamedTemporaryFile
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, UploadFile
+from fastapi import APIRouter, Depends, Request, UploadFile
 from fastapi.responses import FileResponse
 
 from app import excel_service
@@ -16,9 +15,8 @@ router = APIRouter(prefix="/api/excel", tags=["excel"])
 _DEFAULT_START = "2026-01-01"
 
 
-def get_store() -> PlanState:
-    from app.main import app_state
-    return app_state["store"]
+def get_store(request: Request) -> PlanState:
+    return request.app.state.store
 
 
 def _rows_to_creates(rows: list[dict]) -> list[TaskCreate]:
@@ -58,17 +56,17 @@ async def upload_excel(file: UploadFile, store: PlanState = Depends(get_store)):
 
 @router.get("/export")
 def export_excel(store: PlanState = Depends(get_store)):
+    import tempfile
     tasks = [t.model_dump() for t in store.get_all_tasks()]
     xlsx_bytes = excel_service.export_excel(tasks)
 
-    tmp = NamedTemporaryFile(
-        suffix=".xlsx", delete=False, dir="workspace", prefix="gantt_export_"
-    )
-    tmp.write(xlsx_bytes)
-    tmp.close()
+    fd, tmp_path = tempfile.mkstemp(suffix=".xlsx", prefix="gantt_export_")
+    import os
+    os.write(fd, xlsx_bytes)
+    os.close(fd)
 
     return FileResponse(
-        path=tmp.name,
+        path=tmp_path,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         filename="gantt_plan.xlsx",
     )

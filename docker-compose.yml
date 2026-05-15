@@ -2,7 +2,7 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8000:8000"
+      - "8400:8000"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL}
@@ -13,6 +13,6 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "80:80"
+      - "8401:80"
     depends_on:
       - backend

@@ -34,7 +34,7 @@ export OPENAI_MODEL=gpt-4o                         # optional
 # Launch
 docker compose up --build
 
-# Open http://localhost
+# Open http://localhost:8401
 ```
 
 ## Local Development
@@ -43,12 +43,12 @@ docker compose up --build
 # Backend
 cd backend
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8400
 
 # Frontend
 cd frontend
 npm install
-npm run dev   # http://localhost:5173
+npm run dev   # http://localhost:8401
 ```
 
 ## Environment Variables

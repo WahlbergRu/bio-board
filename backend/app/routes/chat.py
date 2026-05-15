@@ -3,7 +3,7 @@
 import json
 from collections.abc import AsyncGenerator
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -18,14 +18,12 @@ class ChatRequest(BaseModel):
     history: list[dict] = []
 
 
-def get_store() -> PlanState:
-    from app.main import app_state
-    return app_state["store"]
+def get_store(request: Request) -> PlanState:
+    return request.app.state.store
 
 
-def get_agent() -> LLMAgent:
-    from app.main import app_state
-    return app_state["agent"]
+def get_agent(request: Request) -> LLMAgent:
+    return request.app.state.llm
 
 
 def _build_plan_context(store: PlanState) -> str:

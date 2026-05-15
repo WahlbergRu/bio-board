@@ -5,6 +5,7 @@ import time
 import hmac
 import hashlib
 import json
+import base64
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -39,18 +40,21 @@ def _check_rate(ip: str) -> bool:
 
 
 def _make_token(user: str) -> str:
-    payload = json.dumps({"user": user, "exp": time.time() + 86400})
-    sig = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
-    return f"{payload}.{sig}"
+    payload_b64 = base64.urlsafe_b64encode(
+        json.dumps({"user": user, "exp": int(time.time() + 86400)}).encode()
+    ).decode().rstrip("=")
+    sig = hmac.new(JWT_SECRET.encode(), payload_b64.encode(), hashlib.sha256).hexdigest()
+    return f"{payload_b64}.{sig}"
 
 
 def _verify_token(token: str) -> dict | None:
     try:
-        payload, sig = token.split(".")
-        expected = hmac.new(JWT_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
+        payload_b64, sig = token.rsplit(".", 1)
+        expected = hmac.new(JWT_SECRET.encode(), payload_b64.encode(), hashlib.sha256).hexdigest()
         if sig != expected:
             return None
-        data = json.loads(payload)
+        padded = payload_b64 + "=" * (4 - len(payload_b64) % 4)
+        data = json.loads(base64.urlsafe_b64decode(padded))
         if data.get("exp", 0) < time.time():
             return None
         return data
