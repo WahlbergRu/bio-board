@@ -1,48 +1,36 @@
 import { create } from 'zustand';
-import type { Task, ChatMessage } from '../types';
+import { Task, ChatMessage } from '../types';
 
-interface AppState {
+interface State {
   tasks: Task[];
   chatMessages: ChatMessage[];
   selectedTask: Task | null;
   viewMode: 'gantt' | 'kanban';
-  isLoading: boolean;
-
-  setTasks: (tasks: Task[]) => void;
-  addTask: (task: Task) => void;
+  autoSave: boolean;
+  setTasks: (t: Task[]) => void;
+  addTask: (t: Task) => void;
   updateTask: (id: string, data: Partial<Task>) => void;
   deleteTask: (id: string) => void;
-  addMessage: (msg: ChatMessage) => void;
-  setSelectedTask: (task: Task | null) => void;
-  setViewMode: (mode: 'gantt' | 'kanban') => void;
-  setLoading: (loading: boolean) => void;
+  addMessage: (m: ChatMessage) => void;
+  setMessages: (m: ChatMessage[]) => void;
+  setSelectedTask: (t: Task | null) => void;
+  setViewMode: (m: 'gantt' | 'kanban') => void;
+  setAutoSave: (v: boolean) => void;
 }
 
-export const useStore = create<AppState>((set) => ({
+export const useStore = create<State>(set => ({
   tasks: [],
   chatMessages: [],
   selectedTask: null,
   viewMode: 'gantt',
-  isLoading: false,
-
-  setTasks: (tasks) => set({ tasks }),
-
-  addTask: (task) => set((s) => ({ tasks: [...s.tasks, task] })),
-
-  updateTask: (id, data) =>
-    set((s) => ({
-      tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...data } : t)),
-    })),
-
-  deleteTask: (id) =>
-    set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
-
-  addMessage: (msg) =>
-    set((s) => ({ chatMessages: [...s.chatMessages, msg] })),
-
-  setSelectedTask: (task) => set({ selectedTask: task }),
-
-  setViewMode: (mode) => set({ viewMode: mode }),
-
-  setLoading: (loading) => set({ isLoading: loading }),
+  autoSave: true,
+  setTasks: t => set({ tasks: t }),
+  addTask: t => set(s => ({ tasks: [...s.tasks, t] })),
+  updateTask: (id, data) => set(s => ({ tasks: s.tasks.map(t => t.id === id ? { ...t, ...data } : t) })),
+  deleteTask: id => set(s => ({ tasks: s.tasks.filter(t => t.id !== id) })),
+  addMessage: m => set(s => ({ chatMessages: [...s.chatMessages, m] })),
+  setMessages: m => set({ chatMessages: m }),
+  setSelectedTask: t => set({ selectedTask: t }),
+  setViewMode: m => set({ viewMode: m }),
+  setAutoSave: v => set({ autoSave: v }),
 }));

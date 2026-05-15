@@ -1,35 +1,58 @@
 import ViewSwitcher from './ViewSwitcher';
 import ExcelHandler from './ExcelHandler';
+import { ui } from '../i18n';
 
 interface HeaderProps {
   viewMode: 'gantt' | 'kanban';
+  zoomLevel: 'day' | 'week' | 'month' | 'quarter';
   onViewChange: (mode: 'gantt' | 'kanban') => void;
+  onZoomChange: (z: 'day' | 'week' | 'month' | 'quarter') => void;
   onSeed: () => void;
-  onUploaded: () => void;
+  onUpload: (count: number) => void;
+  onExport: () => void;
+  onExportIcal: () => void;
+  onSave: () => void;
+  onToggleAutoSave: () => void;
+  autoSave: boolean;
+  onLogin: () => void;
+  onLogout: () => void;
+  isAuthenticated: boolean;
 }
 
-export default function Header({ viewMode, onViewChange, onSeed, onUploaded }: HeaderProps) {
+export default function Header({
+  viewMode, zoomLevel, onViewChange, onZoomChange,
+  onSeed, onUpload, onExport, onExportIcal, onSave,
+  onToggleAutoSave, autoSave, onLogin, onLogout, isAuthenticated,
+}: HeaderProps) {
   return (
     <header style={{
-      display: 'flex', alignItems: 'center', gap: 16,
+      display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
       padding: '10px 20px', background: '#1a1a2e',
       borderBottom: '1px solid #333', color: '#eee',
     }}>
-      <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, whiteSpace: 'nowrap' }}>
-        AI Gantt Planner
+      <h1 style={{ fontSize: 16, fontWeight: 700, margin: 0, whiteSpace: 'nowrap' }}>
+        {ui.title}
       </h1>
       <ViewSwitcher currentMode={viewMode} onChange={onViewChange} />
-      <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-        <ExcelHandler onUploaded={onUploaded} />
-        <button
-          onClick={onSeed}
-          style={{
-            padding: '6px 14px', background: '#2a6a3e', color: '#ccc',
-            border: '1px solid #444', borderRadius: 6, cursor: 'pointer', fontSize: 13,
-          }}
-        >
-          🌱 Seed Data
+      <select value={zoomLevel} onChange={e => onZoomChange(e.target.value as any)}
+        style={{ padding: '4px 8px', background: '#2a2a4e', color: '#eee', border: '1px solid #444', borderRadius: 4, fontSize: 12 }}>
+        <option value="day">{ui.viewDay}</option>
+        <option value="week">{ui.viewWeek}</option>
+        <option value="month">{ui.viewMonth}</option>
+        <option value="quarter">{ui.viewQuarter}</option>
+      </select>
+      <div style={{ display: 'flex', gap: 6, marginLeft: 'auto', alignItems: 'center', flexWrap: 'wrap' }}>
+        <button onClick={onSave} className="btn btn-primary" title={ui.savePlan}>{ui.savePlan}</button>
+        <button onClick={onToggleAutoSave} className="btn"
+          style={{ fontSize: 11, padding: '4px 8px', color: autoSave ? '#7ED321' : '#888' }}>
+          {autoSave ? ui.autoSaveOn : ui.autoSaveOff}
         </button>
+        <ExcelHandler onUpload={onUpload} onExport={onExport} onExportIcal={onExportIcal} />
+        <button onClick={onSeed} className="btn" title={ui.seedData}>{ui.seedData}</button>
+        {isAuthenticated
+          ? <button onClick={onLogout} className="btn" style={{ fontSize: 11 }}>{ui.logout}</button>
+          : <button onClick={onLogin} className="btn" style={{ fontSize: 11 }}>{ui.login}</button>
+        }
       </div>
     </header>
   );

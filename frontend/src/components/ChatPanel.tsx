@@ -1,86 +1,80 @@
-import { useState, useRef, useEffect } from 'react';
-import { useStore } from '../store';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { ChatMessage } from '../types';
 import { sendChat } from '../api/chat';
-import type { ChatMessage } from '../types';
+import { ui } from '../i18n';
 
-export default function ChatPanel() {
-  const { chatMessages, addMessage } = useStore();
+interface Props {
+  messages: ChatMessage[];
+  onMessagesChange: (msgs: ChatMessage[]) => void;
+  isAuthenticated: boolean;
+}
+
+const MAX_VISIBLE = 100;
+
+export default function ChatPanel({ messages, onMessagesChange, isAuthenticated }: Props) {
   const [input, setInput] = useState('');
-  const [streaming, setStreaming] = useState(false);
-  const listRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
-  }, [chatMessages]);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
 
-  const handleSend = async () => {
-    const text = input.trim();
-    if (!text || streaming) return;
+  const handleSend = useCallback(async () => {
+    if (!input.trim() || loading || !isAuthenticated) return;
+    const userMsg: ChatMessage = { role: 'user', content: input.trim(), timestamp: new Date().toISOString() };
+    const newHistory = [...messages, userMsg];
+    onMessagesChange(newHistory);
     setInput('');
-    const userMsg: ChatMessage = { role: 'user', content: text, timestamp: new Date().toISOString() };
-    addMessage(userMsg);
-    setStreaming(true);
+    setLoading(true);
 
     const assistantMsg: ChatMessage = { role: 'assistant', content: '', timestamp: new Date().toISOString() };
-    addMessage(assistantMsg);
+    const updated = [...newHistory, assistantMsg];
+    onMessagesChange(updated);
 
     try {
-      const history = chatMessages.filter((m) => m.role !== 'system');
-      const gen = sendChat(text, history);
-      let accumulated = '';
-      for await (const chunk of gen) {
-        accumulated += chunk;
-        const content = accumulated;
-        useStore.setState((s) => ({
-          chatMessages: s.chatMessages.map((m, i) =>
-            i === s.chatMessages.length - 1 ? { ...m, content } : m
-          ),
-        }));
+      let fullText = '';
+      for await (const chunk of sendChat(userMsg.content, newHistory.slice(-MAX_VISIBLE))) {
+        fullText += chunk;
+        const newArr = updated.map((m, i) => i === updated.length - 1 ? { ...m, content: fullText } : m);
+        onMessagesChange(newArr);
       }
-    } catch (err) {
-      const content = `Error: ${err instanceof Error ? err.message : 'Unknown'}`;
-      useStore.setState((s) => ({
-        chatMessages: s.chatMessages.map((m, i) =>
-          i === s.chatMessages.length - 1 ? { ...m, content } : m
-        ),
-      }));
+    } catch {
+      const errArr = updated.map((m, i) => i === updated.length - 1 ? { ...m, content: '⚠️ ' + ui.llmError } : m);
+      onMessagesChange(errArr);
     } finally {
-      setStreaming(false);
+      setLoading(false);
     }
-  };
+  }, [input, loading, isAuthenticated, messages, onMessagesChange]);
 
-  const bubble = (msg: ChatMessage): React.CSSProperties => ({
-    maxWidth: '85%', padding: '8px 12px', borderRadius: 12, fontSize: 13,
-    lineHeight: 1.5, wordBreak: 'break-word',
-    ...(msg.role === 'user'
-      ? { background: '#4A90D9', color: '#fff', alignSelf: 'flex-end', borderBottomRightRadius: 4 }
-      : { background: '#2a2a44', color: '#ddd', alignSelf: 'flex-start', borderBottomLeftRadius: 4 }),
-  });
+  const visible = messages.slice(-MAX_VISIBLE);
+  const offset = Math.max(0, messages.length - MAX_VISIBLE);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#16162a', borderLeft: '1px solid #333' }}>
-      <div ref={listRef} style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {chatMessages.map((msg, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-            <div style={bubble(msg)}>{msg.content}{streaming && i === chatMessages.length - 1 && <span className="cursor">▌</span>}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ padding: '6px 12px', fontSize: 12, color: '#666', borderBottom: '1px solid #333' }}>
+        {offset > 0 ? `${ui.lastMessages} (${offset} скрыто)` : ui.chatHistory}
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {visible.map((m, i) => (
+          <div key={i} style={{
+            alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+            maxWidth: '85%', padding: '8px 12px', borderRadius: 12,
+            background: m.role === 'user' ? '#4A90D9' : '#2a2a4e',
+            color: '#eee', fontSize: 13, lineHeight: 1.4,
+          }}>
+            <div dangerouslySetInnerHTML={{ __html: m.content.replace(/\n/g, '<br/>') }} />
           </div>
         ))}
+        {loading && <div style={{ color: '#666', fontSize: 12, padding: '4px 12px' }}>▋</div>}
+        <div ref={endRef} />
       </div>
-      <div style={{ display: 'flex', gap: 8, padding: 10, borderTop: '1px solid #333' }}>
-        <input
-          value={input} onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="Ask AI to modify plan..."
-          style={{
-            flex: 1, padding: '8px 12px', background: '#2a2a44', border: '1px solid #444',
-            borderRadius: 8, color: '#eee', fontSize: 13, outline: 'none',
-          }}
+      <div style={{ padding: '8px 12px', borderTop: '1px solid #333', display: 'flex', gap: 6, alignItems: 'center' }}>
+        <input value={input} onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
+          placeholder={ui.chatPlaceholder} disabled={loading || !isAuthenticated}
+          style={{ flex: 1, padding: '6px 10px', background: '#2a2a4e', border: '1px solid #444', borderRadius: 6, color: '#eee', fontSize: 13 }}
         />
-        <button onClick={handleSend} disabled={streaming} style={{
-          padding: '8px 16px', background: streaming ? '#333' : '#4A90D9', color: '#fff',
-          border: 'none', borderRadius: 8, cursor: streaming ? 'not-allowed' : 'pointer', fontSize: 13,
-        }}>
-          {streaming ? '...' : 'Send'}
+        <button onClick={handleSend} disabled={loading || !input.trim() || !isAuthenticated} className="btn btn-primary" style={{ padding: '6px 14px' }}>
+          {loading ? ui.sending : '→'}
         </button>
       </div>
     </div>

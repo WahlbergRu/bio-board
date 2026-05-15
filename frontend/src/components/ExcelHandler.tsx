@@ -1,46 +1,45 @@
 import { useRef, useState } from 'react';
-import { uploadExcel, exportExcel } from '../api/excel';
+import { uploadExcel } from '../api/excel';
+import { ui } from '../i18n';
 
-export default function ExcelHandler({ onUploaded }: { onUploaded: () => void }) {
-  const inputRef = useRef<HTMLInputElement>(null);
+interface Props {
+  onUpload: (count: number) => void;
+  onExport: () => void;
+  onExportIcal: () => void;
+}
+
+export default function ExcelHandler({ onUpload, onExport, onExportIcal }: Props) {
+  const ref = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState('');
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setLoading(true);
+    setProgress(ui.parsing);
     try {
-      await uploadExcel(file);
-      onUploaded();
-    } catch (err) {
-      console.error('Upload failed', err);
+      const result = await uploadExcel(file);
+      setProgress(ui.uploadSuccess.replace('{count}', String(result.count)));
+      onUpload(result.count);
+    } catch {
+      setProgress(ui.uploadError);
     } finally {
       setLoading(false);
-      if (inputRef.current) inputRef.current.value = '';
+      if (ref.current) ref.current.value = '';
+      setTimeout(() => setProgress(''), 3000);
     }
   };
 
-  const handleExport = async () => {
-    setLoading(true);
-    try { await exportExcel(); }
-    catch (err) { console.error('Export failed', err); }
-    finally { setLoading(false); }
-  };
-
-  const btn: React.CSSProperties = {
-    padding: '6px 14px', background: '#2a2a3e', color: '#ccc',
-    border: '1px solid #444', borderRadius: 6, cursor: 'pointer', fontSize: 13,
-  };
-
   return (
-    <>
-      <input ref={inputRef} type="file" accept=".xlsx" hidden onChange={handleFile} />
-      <button style={btn} onClick={() => inputRef.current?.click()} disabled={loading}>
-        {loading ? '⏳' : '📥'} Import
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+      <input ref={ref} type="file" hidden accept=".xlsx,.xls" onChange={handleFile} />
+      <button onClick={() => ref.current?.click()} disabled={loading} className="btn" style={{ fontSize: 11, padding: '4px 10px' }}>
+        {loading ? ui.parsing : ui.uploadExcel}
       </button>
-      <button style={btn} onClick={handleExport} disabled={loading}>
-        {loading ? '⏳' : '📤'} Export
-      </button>
-    </>
+      <button onClick={onExport} className="btn" style={{ fontSize: 11, padding: '4px 10px' }}>{ui.exportExcel}</button>
+      <button onClick={onExportIcal} className="btn" style={{ fontSize: 11, padding: '4px 10px' }}>{ui.exportIcal}</button>
+      {progress && <span style={{ fontSize: 10, color: '#7ED321' }}>{progress}</span>}
+    </div>
   );
 }

@@ -1,9 +1,12 @@
 import axios from 'axios';
 
-const client = axios.create({
+export const client = axios.create({
   baseURL: '/api',
   timeout: 30000,
-  headers: { 'Content-Type': 'application/json' },
 });
 
-export default client;
+client.interceptors.request.use(config => {
+  const token = localStorage.getItem('gantt_token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});

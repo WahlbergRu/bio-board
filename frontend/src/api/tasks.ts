@@ -1,4 +1,4 @@
-import client from './client';
+import { client } from './client';
 import type { Task, TaskFormData } from '../types';
 
 export async function fetchTasks(): Promise<Task[]> {

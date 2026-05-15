@@ -1,25 +1,28 @@
-interface ViewSwitcherProps {
+import { ui } from '../i18n';
+
+interface Props {
   currentMode: 'gantt' | 'kanban';
   onChange: (mode: 'gantt' | 'kanban') => void;
 }
 
-const btn: React.CSSProperties = {
-  padding: '6px 18px', border: 'none', cursor: 'pointer',
-  fontSize: 13, fontWeight: 600, borderRadius: 6, transition: 'all 0.15s',
-};
-
-const active: React.CSSProperties = { ...btn, background: '#4A90D9', color: '#fff' };
-const inactive: React.CSSProperties = { ...btn, background: '#2a2a3e', color: '#aaa' };
-
-export default function ViewSwitcher({ currentMode, onChange }: ViewSwitcherProps) {
+export default function ViewSwitcher({ currentMode, onChange }: Props) {
+  const tabs: { key: 'gantt' | 'kanban'; label: string }[] = [
+    { key: 'gantt', label: ui.gantt },
+    { key: 'kanban', label: ui.kanban },
+  ];
   return (
     <div style={{ display: 'flex', gap: 4 }}>
-      <button style={currentMode === 'gantt' ? active : inactive} onClick={() => onChange('gantt')}>
-        Gantt
-      </button>
-      <button style={currentMode === 'kanban' ? active : inactive} onClick={() => onChange('kanban')}>
-        Kanban
-      </button>
+      {tabs.map(t => (
+        <button key={t.key} onClick={() => onChange(t.key)}
+          style={{
+            padding: '4px 12px', border: 'none', borderRadius: 4,
+            background: currentMode === t.key ? '#4A90D9' : 'transparent',
+            color: currentMode === t.key ? '#fff' : '#999',
+            cursor: 'pointer', fontSize: 12, fontWeight: 500,
+          }}>
+          {t.label}
+        </button>
+      ))}
     </div>
   );
 }

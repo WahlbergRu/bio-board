@@ -33,7 +33,11 @@ class PlanState:
     def get_all_tasks(self) -> list[Task]:
         return list(self.tasks.values())
 
-    def create_task(self, data: TaskCreate) -> Task:
+MAX_TASKS = 500
+
+    def create_task(self, data: TaskCreate) -> Task | str:
+        if len(self.tasks) >= MAX_TASKS:
+            return f"error: Maximum {MAX_TASKS} tasks reached"
         tid = self._next_id()
         task = Task(id=tid, **data.model_dump())
         self.tasks[tid] = task

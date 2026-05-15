@@ -1,6 +1,6 @@
 """Task CRUD routes."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.models import Task, TaskCreate, TaskUpdate
 from app.store import PlanState
@@ -8,9 +8,8 @@ from app.store import PlanState
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
 
-def get_store() -> PlanState:
-    from app.main import app_state
-    return app_state["store"]
+def get_store(request: Request) -> PlanState:
+    return request.app.state.store
 
 
 @router.get("/", response_model=list[Task])
@@ -28,7 +27,10 @@ def get_task(task_id: str, store: PlanState = Depends(get_store)):
 
 @router.post("/", response_model=Task, status_code=201)
 def create_task(body: TaskCreate, store: PlanState = Depends(get_store)):
-    return store.create_task(body)
+    result = store.create_task(body)
+    if isinstance(result, str):
+        raise HTTPException(400, result)
+    return result
 
 
 @router.put("/{task_id}", response_model=Task)
