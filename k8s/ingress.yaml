@@ -1,0 +1,38 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ai-gantt-ingress
+  labels:
+    app: ai-gantt
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  tls:
+    - hosts:
+        - ai-gantt.example.com
+      secretName: ai-gantt-tls
+  rules:
+    - host: ai-gantt.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          - path: /mcp
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
