@@ -85,7 +85,7 @@ def test_full_user_journey(client):
     async def fake_chat(*a, **kw):
         yield "mocked response"
 
-    with patch.object(app.state.llm, "chat", fake_chat):
+    with patch.object(app.state.llm, "chat_with_store", fake_chat):
         r = client.post("/api/chat/", json={"message": "hello", "history": []})
         assert r.status_code == 200
         assert "text/event-stream" in r.headers.get("content-type", "")
@@ -384,7 +384,7 @@ def test_chat_with_tool_calls(client):
         # The real agent yields tool results inline; our mock just yields text
         yield '{"tool": "create_task", "status": "dispatched"}'
 
-    with patch.object(app.state.llm, "chat", fake_chat_with_tools):
+    with patch.object(app.state.llm, "chat_with_store", fake_chat_with_tools):
         r = client.post("/api/chat/", json={
             "message": "Create a task called TestChat",
             "history": [],
