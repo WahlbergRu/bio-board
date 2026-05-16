@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useStore } from './store';
+import { client } from './api/client';
 import { fetchTasks, seedPlan } from './api/tasks';
 import { exportExcel, exportIcal } from './api/excel';
 import Header from './components/Header';
@@ -49,9 +50,18 @@ export default function App() {
   const handleTaskClick = (t: Task) => { setSelectedTask(t); setShowModal(true); };
 
   const handleTaskSave = (t: Task) => {
-    useStore.getState().updateTask(t.id, { ...t, dependencies: t.dependencies });
+    handleTaskUpdate(t);
     setShowModal(false);
     setUnsaved(true);
+  };
+
+  const handleTaskUpdate = async (task: Task) => {
+    try {
+      await client.put(`/tasks/${task.id}/`, task);
+      useStore.getState().updateTask(task.id, task);
+    } catch (err) {
+      console.error("Failed to update task", err);
+    }
   };
 
   const handleReassign = (id: string, assignee: string) => {
@@ -76,7 +86,7 @@ export default function App() {
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <div style={{ flex: 1, overflow: 'auto' }}>
           {viewMode === 'gantt'
-            ? <GanttView tasks={tasks} onTaskClick={handleTaskClick} zoom={zoomLevel} />
+            ? <GanttView tasks={tasks} onTaskClick={handleTaskClick} onTaskUpdate={handleTaskUpdate} zoom={zoomLevel} />
             : <KanbanView tasks={tasks} onTaskClick={handleTaskClick} onReassign={handleReassign} />
           }
           {tasks.length === 0 && <div style={{ color: '#666', textAlign: 'center', padding: 60, fontSize: 14 }}>{ui.noTasks}</div>}

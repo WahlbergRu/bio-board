@@ -1,22 +1,30 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import * as d3 from 'd3';
 import type { Task } from '../types';
 
 const COLORS = { task: '#4A90D9', milestone: '#F5A623', project: '#7ED321' };
 const ROW_H = 36;
 const MARGIN = { top: 50, right: 20, bottom: 20, left: 160 };
+const HANDLE_W = 6;
 
-export function useGantt(svgRef: React.RefObject<SVGSVGElement | null>, tasks: Task[], visibleDays: number) {
+export function useGantt(
+  svgRef: React.RefObject<SVGSVGElement | null>,
+  tasks: Task[],
+  visibleDays: number,
+  onTaskUpdate?: (task: Task) => void,
+  onTaskClick?: (task: Task) => void
+) {
   const render = useCallback(() => {
-    if (!svgRef.current || tasks.length === 0) return;
+    if (!svgRef.current) return;
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
     const rect = svgRef.current.parentElement?.getBoundingClientRect();
     const W = Math.max((rect?.width ?? 900) - MARGIN.left - MARGIN.right, visibleDays * 40);
-    const H = tasks.length * ROW_H;
+    const H = Math.max(tasks.length * ROW_H, 100);
     svg.attr('width', rect?.width ?? 900).attr('height', H + MARGIN.top + MARGIN.bottom);
 
+    // Defs for arrows
     const defs = svg.append('defs');
     defs.append('marker').attr('id', 'arrow').attr('viewBox', '0 0 10 10')
       .attr('refX', 10).attr('refY', 5).attr('markerWidth', 6).attr('markerHeight', 6).attr('orient', 'auto')
@@ -24,50 +32,143 @@ export function useGantt(svgRef: React.RefObject<SVGSVGElement | null>, tasks: T
 
     const g = svg.append('g').attr('transform', `translate(${MARGIN.left},${MARGIN.top})`);
 
+    // Scales
     const [minD, maxD] = d3.extent(tasks.flatMap(t => [+new Date(t.start_date), +new Date(t.end_date)])) as [number, number];
-    const domainStart = d3.timeDay.offset(new Date(minD), -2);
-    const domainEnd = d3.timeDay.offset(new Date(maxD), Math.max(visibleDays / 10, 5));
+    const domainStart = d3.timeDay.offset(new Date(minD || Date.now()), -2);
+    const domainEnd = d3.timeDay.offset(new Date(maxD || Date.now()), Math.max(visibleDays / 10, 5));
     const x = d3.scaleTime().domain([domainStart, domainEnd]).range([0, W]);
     const y = d3.scaleBand<Task>().domain(tasks).range([0, H]).padding(0.25);
 
+    // Grid
     const tickCount = Math.min(visibleDays, 20);
     g.append('g').selectAll('line').data(x.ticks(tickCount)).join('line')
       .attr('x1', d => x(d)).attr('x2', d => x(d)).attr('y1', 0).attr('y2', H)
       .attr('stroke', '#333').attr('stroke-dasharray', '3,3');
 
+    // Axis
     const axisFmt = visibleDays <= 7 ? d3.timeFormat('%d %b') : visibleDays <= 60 ? d3.timeFormat('%b %d') : d3.timeFormat('%b %Y');
-    g.append('g').call(d3.axisTop<Date>(x).ticks(tickCount).tickFormat(axisFmt as any) as any);
+    g.append('g').call(d3.axisTop<Date>(x).ticks(tickCount).tickFormat(axisFmt as any));
 
+    // Labels
     g.selectAll('.label').data(tasks).join('text')
       .attr('x', -8).attr('y', d => y(d)! + y.bandwidth() / 2)
       .attr('text-anchor', 'end').attr('dominant-baseline', 'middle')
       .attr('font-size', '12px').attr('fill', '#eee').text(d => d.name);
 
-    const taskMap = new Map(tasks.map(t => [t.id, t]));
+    // Task Bars Group
     const bars = g.selectAll('.bar').data(tasks).join('g').attr('class', 'bar');
+
+    // Drag Behavior (Move)
+    const dragMove = d3.drag<SVGGElement, Task>()
+      .on('drag', function (event, d) {
+        if (d.type === 'milestone') return;
+        const daysDelta = Math.round(event.dx / (W / visibleDays));
+        const startDate = d3.timeDay.offset(new Date(d.start_date), daysDelta);
+        const endDate = d3.timeDay.offset(new Date(d.end_date), daysDelta);
+        
+        // Update visuals immediately
+        const newX1 = x(startDate)!;
+        const newX2 = x(endDate)!;
+        const bw = Math.max(newX2 - newX1, 8);
+
+        d3.select(this).select('.bar-rect').attr('x', newX1).attr('width', bw);
+        d3.select(this).select('.handle-left').attr('x', newX1 - HANDLE_W / 2);
+        d3.select(this).select('.handle-right').attr('x', newX2 - HANDLE_W / 2);
+        d3.select(this).select('.progress-rect').attr('x', newX1).attr('width', bw * d.progress / 100);
+      })
+      .on('end', function (event, d) {
+        if (d.type === 'milestone' || !onTaskUpdate) return;
+        const daysDelta = Math.round(event.dx / (W / visibleDays));
+        const startDate = d3.timeDay.offset(new Date(d.start_date), daysDelta);
+        const endDate = d3.timeDay.offset(new Date(d.end_date), daysDelta);
+        
+        onTaskUpdate({
+          ...d,
+          start_date: startDate.toISOString().split('T')[0],
+          end_date: endDate.toISOString().split('T')[0]
+        });
+      });
+
+    // Drag Behavior (Resize Right)
+    const dragResize = d3.drag<SVGRectElement, Task>()
+      .on('drag', function (event, d) {
+        if (d.type === 'milestone') return;
+        const x1 = x(new Date(d.start_date))!;
+        const newX2 = Math.max(x1 + 8, event.x);
+        // const endDate = x.invert(newX2); // Not needed for visual update
+        
+        const bw = newX2 - x1;
+        const group = d3.select(this.parentNode as SVGElement);
+        group.select('.bar-rect').attr('width', bw);
+        group.select('.progress-rect').attr('width', bw * d.progress / 100);
+        group.select('.handle-right').attr('x', newX2 - HANDLE_W / 2);
+      })
+      .on('end', function (event, d) {
+        if (d.type === 'milestone' || !onTaskUpdate) return;
+        const x1 = x(new Date(d.start_date))!;
+        const newX2 = Math.max(x1 + 8, event.x);
+        const endDate = x.invert(newX2);
+        
+        onTaskUpdate({
+          ...d,
+          end_date: endDate.toISOString().split('T')[0]
+        });
+      });
 
     tasks.forEach(t => {
       const bar = bars.filter(d => d.id === t.id);
       const color = COLORS[t.type];
-      const x1 = x(new Date(t.start_date))!, x2 = x(new Date(t.end_date))!;
-      const yy = y(t)!, bw = Math.max(x2 - x1, 8), bh = y.bandwidth();
+      const x1 = x(new Date(t.start_date))!;
+      const x2 = x(new Date(t.end_date))!;
+      const yy = y(t)!;
+      const bw = Math.max(x2 - x1, 8);
+      const bh = y.bandwidth();
 
       if (t.type === 'milestone') {
         const cx = (x1 + x2) / 2, cy = yy + bh / 2, r = bh / 2;
-        bar.append('polygon').attr('points', `${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`)
-          .attr('fill', color).attr('cursor', 'pointer');
+        bar.append('polygon')
+          .attr('points', `${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`)
+          .attr('fill', color).attr('cursor', 'pointer')
+          .on('click', (event, d) => {
+            event.stopPropagation();
+            if (onTaskClick) onTaskClick(d);
+          });
       } else {
-        bar.append('rect').attr('x', x1).attr('y', yy).attr('width', bw).attr('height', bh)
-          .attr('rx', 4).attr('fill', color).attr('cursor', 'pointer');
-        if (t.progress > 0) {
-          bar.append('rect').attr('x', x1).attr('y', yy).attr('width', bw * t.progress / 100).attr('height', bh)
-            .attr('rx', 4).attr('fill', d3.color(color)!.darker(0.8).toString()).attr('opacity', 0.5);
-        }
+        // Main Bar
+        bar.append('rect').attr('class', 'bar-rect')
+          .attr('x', x1).attr('y', yy).attr('width', bw).attr('height', bh)
+          .attr('rx', 4).attr('fill', color).attr('cursor', 'grab')
+          .call(dragMove as any)
+          .on('click', (event, d) => {
+            event.stopPropagation();
+            if (onTaskClick) onTaskClick(d);
+          });
+
+        // Progress Overlay
+        bar.append('rect').attr('class', 'progress-rect')
+          .attr('x', x1).attr('y', yy).attr('width', bw * t.progress / 100).attr('height', bh)
+          .attr('rx', 4).attr('fill', d3.color(color)!.darker(0.8).toString()).attr('opacity', 0.5)
+          .style('pointer-events', 'none');
+
+        // Left Handle
+        bar.append('rect').attr('class', 'handle-left')
+          .attr('x', x1 - HANDLE_W / 2).attr('y', yy).attr('width', HANDLE_W).attr('height', bh)
+          .attr('fill', 'transparent').style('cursor', 'ew-resize');
+
+        // Right Handle (Resize)
+        bar.append('rect').attr('class', 'handle-right')
+          .attr('x', x2 - HANDLE_W / 2).attr('y', yy).attr('width', HANDLE_W).attr('height', bh)
+          .attr('fill', '#fff').attr('opacity', 0.5).style('cursor', 'ew-resize')
+          .call(dragResize as any);
+
+        // Assignee Label
+        bar.append('text').attr('x', x1 + 4).attr('y', yy + bh / 2 + 4)
+          .attr('font-size', '10px').attr('fill', '#fff').style('pointer-events', 'none').text(t.assignee);
       }
-      bar.append('text').attr('x', x1 + 4).attr('y', yy + bh / 2 + 4)
-        .attr('font-size', '10px').attr('fill', '#fff').text(t.assignee);
     });
 
+    // Dependency Arrows
+    const taskMap = new Map(tasks.map(t => [t.id, t]));
     tasks.forEach(t => {
       t.dependencies.forEach(depId => {
         const dep = taskMap.get(depId);
@@ -80,13 +181,19 @@ export function useGantt(svgRef: React.RefObject<SVGSVGElement | null>, tasks: T
       });
     });
 
+    // Zoom
     const zoom = d3.zoom<SVGSVGElement, unknown>().scaleExtent([0.3, 5])
       .on('zoom', e => {
         g.attr('transform', `translate(${MARGIN.left + e.transform.x},${MARGIN.top})`);
         g.select('.axis').call(d3.axisTop<Date>(e.transform.rescaleX(x)).ticks(tickCount).tickFormat(axisFmt as any) as any);
       });
     svg.call(zoom);
-  }, [tasks, visibleDays, svgRef]);
+
+  }, [tasks, visibleDays, svgRef, onTaskUpdate, onTaskClick]);
+
+  useEffect(() => {
+    render();
+  }, [render]);
 
   return { render };
 }
