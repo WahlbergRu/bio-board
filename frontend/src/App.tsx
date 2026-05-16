@@ -50,11 +50,8 @@ export default function App() {
   // Command Runner: Sends message to backend CommandEngine via Chat API (silent execution)
   const runCommand = async (message: string) => {
     try {
-      await fetch('/api/chat/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, history: [] })
-      });
+      // Using client to ensure correct baseURL and headers
+      await client.post('/chat/', { message, history: [] });
       // Refresh tasks after command
       fetchTasks().then(setTasks).catch(() => {});
     } catch (err) {
