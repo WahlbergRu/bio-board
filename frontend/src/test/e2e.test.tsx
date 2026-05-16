@@ -4,6 +4,14 @@ import App from '../App';
 import { useStore } from '../store';
 import { Task } from '../types';
 
+vi.mock('../api/client', () => ({
+  client: {
+    put: vi.fn().mockResolvedValue({ data: {} }),
+    post: vi.fn().mockResolvedValue({ data: {} }),
+    get: vi.fn().mockResolvedValue({ data: [] }),
+  },
+}));
+
 vi.mock('../api/tasks', () => ({
   fetchTasks: vi.fn().mockResolvedValue([]),
   seedPlan: vi.fn().mockResolvedValue(undefined),

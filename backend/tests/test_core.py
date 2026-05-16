@@ -51,6 +51,8 @@ def tmp_store():
     from app.store import PlanState
     store = PlanState()
     store._file_path = fpath
+    store.tasks.clear() # Clear loaded global data
+    store.save()        # Save empty state to new file
     yield store
     fpath.unlink(missing_ok=True)
 

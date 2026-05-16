@@ -20,7 +20,7 @@ export default function GanttView({ tasks, onTaskClick, onTaskUpdate, onContextM
   // Handle Resize
   useEffect(() => {
     const element = containerRef.current;
-    if (!element) return;
+    if (!element || typeof ResizeObserver === 'undefined') return;
 
     const observer = new ResizeObserver(() => {
       render();
