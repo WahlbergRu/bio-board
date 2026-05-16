@@ -10,6 +10,8 @@ import ChatPanel from './components/ChatPanel';
 import TaskModal from './components/TaskModal';
 import AuthModal from './components/AuthModal';
 import Notification from './components/Notification';
+import CreateTaskModal from './components/CreateTaskModal';
+import ContextMenu from './components/ContextMenu';
 import { Task } from './types';
 import { ui } from './i18n';
 
@@ -20,9 +22,13 @@ export default function App() {
   const [zoomLevel, setZoomLevel] = useState<'day' | 'week' | 'month' | 'quarter'>('week');
   const [showAuth, setShowAuth] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [notification, setNotification] = useState('');
   const [unsaved, setUnsaved] = useState(false);
+  
+  // Context Menu State
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; task: Task } | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem(SAVE_KEY);
@@ -40,6 +46,21 @@ export default function App() {
   }, [tasks, autoSave]);
 
   const notify = (msg: string) => { setNotification(msg); setTimeout(() => setNotification(''), 3000); };
+
+  // Command Runner: Sends message to backend CommandEngine via Chat API (silent execution)
+  const runCommand = async (message: string) => {
+    try {
+      await fetch('/api/chat/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, history: [] })
+      });
+      // Refresh tasks after command
+      fetchTasks().then(setTasks).catch(() => {});
+    } catch (err) {
+      console.error("Command failed", err);
+    }
+  };
 
   const handleSave = () => {
     localStorage.setItem(SAVE_KEY, JSON.stringify(tasks));
@@ -69,6 +90,39 @@ export default function App() {
     setUnsaved(true);
   };
 
+  const handleContextMenu = (task: Task, e: MouseEvent | React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, task });
+  };
+
+  const handleContextAction = async (action: string) => {
+    if (!contextMenu) return;
+    const task = contextMenu.task;
+    setContextMenu(null);
+
+    switch (action) {
+      case 'copy':
+        await runCommand(`Скопируй задачу ${task.name}`);
+        notify(`Задача "${task.name}" скопирована`);
+        break;
+      case 'delete':
+        await runCommand(`Удали задачу ${task.name}`);
+        notify(`Задача "${task.name}" удалена`);
+        break;
+      case 'shift_fwd':
+        await runCommand(`Сдвинь задачу ${task.name} на 1 день вперед`);
+        break;
+      case 'shift_back':
+        await runCommand(`Сдвинь задачу ${task.name} на 1 день назад`);
+        break;
+    }
+  };
+
+  const handleCreateTask = async (data: { name: string; assignee: string; days: number }) => {
+    await runCommand(`Добавь задачу ${data.name} на ${data.days} дней с исполнителем ${data.assignee || 'Unassigned'}`);
+    notify(`Задача "${data.name}" создана`);
+  };
+
   const handleSeed = () => { seedPlan().then(() => fetchTasks()).then(setTasks).catch(() => {}); };
   const handleUpload = (count: number) => { fetchTasks().then(setTasks); notify(ui.uploadSuccess.replace('{count}', String(count))); };
   const handleExport = () => { exportExcel(); notify(ui.exportSuccess); };
@@ -78,15 +132,17 @@ export default function App() {
   const handleLogout = () => { localStorage.removeItem('gantt_auth'); setIsAuthenticated(false); };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#1a1a2e', color: '#eee' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#1a1a2e', color: '#eee' }}
+         onClick={() => setContextMenu(null)}>
       <Header viewMode={viewMode} zoomLevel={zoomLevel} onViewChange={setViewMode} onZoomChange={setZoomLevel}
         onSeed={handleSeed} onUpload={handleUpload} onExport={handleExport} onExportIcal={handleExportIcal}
         onSave={handleSave} onToggleAutoSave={() => setAutoSave(!autoSave)} autoSave={autoSave}
-        onLogin={handleLogin} onLogout={handleLogout} isAuthenticated={isAuthenticated} />
+        onLogin={handleLogin} onLogout={handleLogout} isAuthenticated={isAuthenticated} 
+        onCreateTask={() => setShowCreateModal(true)} />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <div style={{ flex: 1, overflow: 'auto' }}>
           {viewMode === 'gantt'
-            ? <GanttView tasks={tasks} onTaskClick={handleTaskClick} onTaskUpdate={handleTaskUpdate} zoom={zoomLevel} />
+            ? <GanttView tasks={tasks} onTaskClick={handleTaskClick} onTaskUpdate={handleTaskUpdate} onContextMenu={handleContextMenu} zoom={zoomLevel} />
             : <KanbanView tasks={tasks} onTaskClick={handleTaskClick} onReassign={handleReassign} />
           }
           {tasks.length === 0 && <div style={{ color: '#666', textAlign: 'center', padding: 60, fontSize: 14 }}>{ui.noTasks}</div>}
@@ -99,6 +155,9 @@ export default function App() {
       </div>
       <TaskModal task={selectedTask} isOpen={showModal} onClose={() => setShowModal(false)} onSave={handleTaskSave} />
       <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} onAuth={() => { setIsAuthenticated(true); setShowAuth(false); localStorage.setItem('gantt_auth', '1'); }} />
+      <CreateTaskModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} onCreate={handleCreateTask} />
+      <ContextMenu position={contextMenu ? { x: contextMenu.x, y: contextMenu.y } : null} 
+                   task={contextMenu?.task || null} onClose={() => setContextMenu(null)} onAction={handleContextAction} />
       {notification && <Notification message={notification} />}
     </div>
   );

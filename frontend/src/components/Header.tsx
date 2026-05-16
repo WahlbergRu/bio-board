@@ -8,6 +8,7 @@ interface HeaderProps {
   onViewChange: (mode: 'gantt' | 'kanban') => void;
   onZoomChange: (z: 'day' | 'week' | 'month' | 'quarter') => void;
   onSeed: () => void;
+  onCreateTask: () => void;
   onUpload: (count: number) => void;
   onExport: () => void;
   onExportIcal: () => void;
@@ -21,7 +22,7 @@ interface HeaderProps {
 
 export default function Header({
   viewMode, zoomLevel, onViewChange, onZoomChange,
-  onSeed, onUpload, onExport, onExportIcal, onSave,
+  onSeed, onCreateTask, onUpload, onExport, onExportIcal, onSave,
   onToggleAutoSave, autoSave, onLogin, onLogout, isAuthenticated,
 }: HeaderProps) {
   return (
@@ -47,6 +48,7 @@ export default function Header({
           style={{ fontSize: 11, padding: '4px 8px', color: autoSave ? '#7ED321' : '#888' }}>
           {autoSave ? ui.autoSaveOn : ui.autoSaveOff}
         </button>
+        <button onClick={onCreateTask} className="btn btn-primary" style={{ fontSize: 11 }}>➕ Задача</button>
         <ExcelHandler onUpload={onUpload} onExport={onExport} onExportIcal={onExportIcal} />
         <button onClick={onSeed} className="btn" title={ui.seedData}>{ui.seedData}</button>
         {isAuthenticated

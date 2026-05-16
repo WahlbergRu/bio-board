@@ -93,6 +93,7 @@ describe('Header', () => {
     onViewChange: () => {},
     onZoomChange: () => {},
     onSeed: () => {},
+    onCreateTask: () => {},
     onUpload: () => {},
     onExport: () => {},
     onExportIcal: () => {},

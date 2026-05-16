@@ -6,14 +6,15 @@ interface Props {
   tasks: Task[];
   onTaskClick: (task: Task) => void;
   onTaskUpdate: (task: Task) => void;
+  onContextMenu: (task: Task, e: MouseEvent | React.MouseEvent) => void;
   zoom: 'day' | 'week' | 'month' | 'quarter';
 }
 
 const zoomDays: Record<string, number> = { day: 14, week: 60, month: 180, quarter: 400 };
 
-export default function GanttView({ tasks, onTaskClick, onTaskUpdate, zoom }: Props) {
+export default function GanttView({ tasks, onTaskClick, onTaskUpdate, onContextMenu, zoom }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
-  useGantt(svgRef, tasks, zoomDays[zoom], onTaskUpdate, onTaskClick);
+  useGantt(svgRef, tasks, zoomDays[zoom], onTaskUpdate, onTaskClick, onContextMenu);
 
   return (
     <div style={{ width: '100%', height: '100%', overflow: 'auto', position: 'relative' }}>

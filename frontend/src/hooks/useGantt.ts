@@ -12,7 +12,8 @@ export function useGantt(
   tasks: Task[],
   visibleDays: number,
   onTaskUpdate?: (task: Task) => void,
-  onTaskClick?: (task: Task) => void
+  onTaskClick?: (task: Task) => void,
+  onContextMenu?: (task: Task, e: React.MouseEvent | MouseEvent) => void
 ) {
   const render = useCallback(() => {
     if (!svgRef.current) return;
@@ -132,6 +133,10 @@ export function useGantt(
           .on('click', (event, d) => {
             event.stopPropagation();
             if (onTaskClick) onTaskClick(d);
+          })
+          .on('contextmenu', (event, d) => {
+            event.preventDefault();
+            if (onContextMenu) onContextMenu(d, event);
           });
       } else {
         // Main Bar
@@ -142,6 +147,10 @@ export function useGantt(
           .on('click', (event, d) => {
             event.stopPropagation();
             if (onTaskClick) onTaskClick(d);
+          })
+          .on('contextmenu', (event, d) => {
+            event.preventDefault();
+            if (onContextMenu) onContextMenu(d, event);
           });
 
         // Progress Overlay
