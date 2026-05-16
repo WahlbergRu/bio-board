@@ -83,7 +83,8 @@ export default function App() {
           {unsaved && !autoSave && <div style={{ fontSize: 11, color: '#F5A623', textAlign: 'center', padding: 4 }}>⚠️ Есть несохранённые изменения</div>}
         </div>
         <div style={{ width: 350, borderLeft: '1px solid #333', display: 'flex', flexDirection: 'column' }}>
-          <ChatPanel messages={chatMessages} onMessagesChange={setMessages} isAuthenticated={isAuthenticated} />
+          <ChatPanel messages={chatMessages} onMessagesChange={setMessages} isAuthenticated={isAuthenticated}
+            onComplete={() => fetchTasks().then(setTasks).catch(() => {})} />
         </div>
       </div>
       <TaskModal task={selectedTask} isOpen={showModal} onClose={() => setShowModal(false)} onSave={handleTaskSave} />

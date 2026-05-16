@@ -142,8 +142,11 @@ class LLMAgent:
             })
 
             # Execute each tool call
+            tools_called = False
             for tc in tool_calls.values():
+                tools_called = True
                 name = tc["function"]["name"]
+                print(f"TOOL CALLED: {name} args={tc['function']['arguments']}")
                 handler = tool_handlers.get(name)
                 if handler:
                     try:
@@ -163,6 +166,8 @@ class LLMAgent:
             # Yield a newline between turns for readability
             if has_content and text_parts and not text_parts[-1].endswith("\n"):
                 yield "\n"
+            if tools_called:
+                yield "\x00\x00TOOLS_CALLED\x00\x00"
 
     @staticmethod
     def _build_system_prompt(plan_context: str) -> str:
@@ -170,15 +175,20 @@ class LLMAgent:
             "You are an AI Gantt chart planning assistant. "
             "Help users create, modify, and analyze project plans. "
             "Use the available tools to make changes. Always confirm changes to the user.\n\n"
-            "Rules:\n"
-            "- All dates must be YYYY-MM-DD format\n"
+            "CRITICAL RULES:\n"
+            "- ALWAYS create tasks when asked, even with minimal info. NEVER ask for more details.\n"
+            "- If no dates provided: start_date = today, end_date = today + 3 days\n"
+            "- If no assignee: use 'Unassigned'\n"
+            "- If description missing: use task name as description\n"
+            "- If 'раздел' or 'section' mentioned: treat it as a group label, add to description\n"
             "- Always reference tasks by their numeric ID\n"
-            "- Detect and warn about circular dependencies before adding them\n"
             "- Ensure start_date <= end_date for every task\n"
-            "- When creating tasks, provide realistic timelines\n"
-            "- When adding dependencies, verify both task IDs exist\n"
-            "- Respond in the same language the user writes in (Russian or English)\n"
-            "- Be concise. After making changes, summarize what was done.\n\n"
+            "- Respond in Russian (same language as user)\n"
+            "- Be concise. After making changes, summarize what was done in Russian.\n\n"
+            "Examples:\n"
+            "- 'Добавь задачу Тест' → create_task(name='Тест', start_date=today, end_date=today+3d)\n"
+            "- 'Удали задачу 5' → delete_task(id='5')\n"
+            "- 'Поменяй дизайнера с архитектором' → update_task(id of System Design, assignee='Designer'), update_task(id of UI/UX Design, assignee='Architect')\n\n"
             f"Current plan state:\n{plan_context}"
         )
 
@@ -189,19 +199,20 @@ class LLMAgent:
                 "type": "function",
                 "function": {
                     "name": "create_task",
-                    "description": "Create a new task in the plan",
+                    "description": "Create a new task in the plan. If no dates provided, use today as start and today+3 days as end.",
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "name": {"type": "string", "description": "Task name"},
                             "description": {"type": "string", "description": "Task description"},
-                            "start_date": {"type": "string", "description": "Start date YYYY-MM-DD"},
-                            "end_date": {"type": "string", "description": "End date YYYY-MM-DD (optional, calculated from duration)"},
-                            "progress": {"type": "integer", "description": "Progress 0-100"},
+                            "start_date": {"type": "string", "description": "Start date YYYY-MM-DD. Optional, defaults to today."},
+                            "end_date": {"type": "string", "description": "End date YYYY-MM-DD. Optional, defaults to start+3 days."},
+                            "progress": {"type": "integer", "description": "Progress 0-100, default 0"},
                             "type": {"type": "string", "enum": ["task", "milestone", "project"]},
-                            "assignee": {"type": "string", "description": "Person assigned"},
+                            "assignee": {"type": "string", "description": "Person assigned, default 'Unassigned'"},
+                            "dependencies": {"type": "array", "items": {"type": "string"}, "description": "List of prerequisite task IDs"},
                         },
-                        "required": ["name", "start_date"],
+                        "required": ["name"],
                     },
                 },
             },

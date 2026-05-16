@@ -7,11 +7,12 @@ interface Props {
   messages: ChatMessage[];
   onMessagesChange: (msgs: ChatMessage[]) => void;
   isAuthenticated: boolean;
+  onComplete?: () => void;
 }
 
 const MAX_VISIBLE = 100;
 
-export default function ChatPanel({ messages, onMessagesChange, isAuthenticated }: Props) {
+export default function ChatPanel({ messages, onMessagesChange, isAuthenticated, onComplete }: Props) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -42,8 +43,9 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated 
       onMessagesChange(errArr);
     } finally {
       setLoading(false);
+      onComplete?.();
     }
-  }, [input, loading, isAuthenticated, messages, onMessagesChange]);
+  }, [input, loading, isAuthenticated, messages, onMessagesChange, onComplete]);
 
   const visible = messages.slice(-MAX_VISIBLE);
   const offset = Math.max(0, messages.length - MAX_VISIBLE);
