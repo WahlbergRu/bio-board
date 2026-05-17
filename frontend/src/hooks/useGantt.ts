@@ -40,10 +40,11 @@ export function useGantt(
     const x = d3.scaleTime().domain([domainStart, domainEnd]).range([0, W]);
     const y = d3.scaleBand<Task>().domain(tasks).range([0, H]).padding(0.25);
 
-    // Grid background for panning
-    g.append('rect').attr('class', 'pan-area')
+    // Grid background for panning (zoom target) - behind all bars
+    const panArea = g.append('rect').attr('class', 'pan-area')
       .attr('x', 0).attr('y', 0).attr('width', W).attr('height', H)
-      .attr('fill', 'transparent').attr('cursor', 'grab');
+      .attr('fill', 'transparent').attr('cursor', 'grab')
+      .style('pointer-events', 'all');  // only responds when no bar underneath
 
     // Grid lines
     const tickCount = Math.min(visibleDays, 20);
@@ -66,8 +67,9 @@ export function useGantt(
 
     // Drag Behavior (Move)
     const dragMove = d3.drag<SVGGElement, Task>()
-      .on('start', function () {
+      .on('start', function (event) {
         d3.select(this).style('cursor', 'grabbing');
+        event.sourceEvent.stopPropagation();  // Prevent zoom from receiving
       })
       .on('drag', function (event, d) {
         if (d.type === 'milestone') return;
@@ -75,24 +77,48 @@ export function useGantt(
         const startDate = d3.timeDay.offset(new Date(d.start_date), daysDelta);
         const endDate = d3.timeDay.offset(new Date(d.end_date), daysDelta);
         
-        // Update visuals immediately
-        const newX1 = x(startDate)!;
-        const newX2 = x(endDate)!;
+        // Calculate new positions and clamp to viewport [0, W]
+        let newX1 = x(startDate)!;
+        let newX2 = x(endDate)!;
         const bw = Math.max(newX2 - newX1, 8);
+        
+        // Clamp to viewport bounds
+        if (newX1 < 0) {
+          newX1 = 0;
+          newX2 = newX1 + bw;
+        }
+        if (newX2 > W) {
+          newX2 = W;
+          newX1 = newX2 - bw;
+        }
 
-        d3.select(this).select('.bar-rect').attr('x', newX1).attr('width', bw);
+        d3.select(this).select('.bar-rect').attr('x', newX1).attr('width', Math.max(newX2 - newX1, 8));
         d3.select(this).select('.handle-left').attr('x', newX1 - HANDLE_W / 2);
         d3.select(this).select('.handle-right').attr('x', newX2 - HANDLE_W / 2);
-        d3.select(this).select('.progress-rect').attr('x', newX1).attr('width', bw * d.progress / 100);
+        d3.select(this).select('.progress-rect').attr('x', newX1).attr('width', (newX2 - newX1) * d.progress / 100);
       })
       .on('end', function (event, d) {
         d3.select(this).style('cursor', 'grab');
         if (d.type === 'milestone' || !onTaskUpdate) return;
-        // Stop propagation so zoom doesn't receive this event
         event.sourceEvent.stopPropagation();
+        
         const daysDelta = Math.round(event.dx / (W / visibleDays));
-        const startDate = d3.timeDay.offset(new Date(d.start_date), daysDelta);
-        const endDate = d3.timeDay.offset(new Date(d.end_date), daysDelta);
+        let startDate = d3.timeDay.offset(new Date(d.start_date), daysDelta);
+        let endDate = d3.timeDay.offset(new Date(d.end_date), daysDelta);
+        
+        // Clamp dates to valid range
+        let newX1 = x(startDate)!;
+        let newX2 = x(endDate)!;
+        if (newX1 < 0) {
+          const daysShift = Math.round(-newX1 / (W / visibleDays));
+          startDate = d3.timeDay.offset(startDate, daysShift);
+          endDate = d3.timeDay.offset(endDate, daysShift);
+        }
+        if (newX2 > W) {
+          const daysShift = Math.round((newX2 - W) / (W / visibleDays));
+          startDate = d3.timeDay.offset(startDate, -daysShift);
+          endDate = d3.timeDay.offset(endDate, -daysShift);
+        }
         
         onTaskUpdate({
           ...d,
@@ -101,16 +127,47 @@ export function useGantt(
         });
       });
 
-    // Drag Behavior (Resize Right)
-    const dragResize = d3.drag<SVGRectElement, Task>()
-      .on('start', function () {
+    // Drag Behavior (Resize Left) - changes start date, clamped to [0, end-8]
+    const dragResizeLeft = d3.drag<SVGRectElement, Task>()
+      .on('start', function (event) {
         d3.select(this).style('cursor', 'grabbing');
+        event.sourceEvent.stopPropagation();
+      })
+      .on('drag', function (event, d) {
+        if (d.type === 'milestone') return;
+        const x2 = x(new Date(d.end_date))!;
+        const newX1 = Math.max(0, Math.min(x2 - 8, event.x));
+        
+        const bw = x2 - newX1;
+        const group = d3.select(this.parentNode as SVGElement);
+        group.select('.bar-rect').attr('x', newX1).attr('width', bw);
+        group.select('.progress-rect').attr('x', newX1).attr('width', bw * d.progress / 100);
+        group.select('.handle-left').attr('x', newX1 - HANDLE_W / 2);
+      })
+      .on('end', function (event, d) {
+        d3.select(this).style('cursor', 'ew-resize');
+        if (d.type === 'milestone' || !onTaskUpdate) return;
+        event.sourceEvent.stopPropagation();
+        const x2 = x(new Date(d.end_date))!;
+        const newX1 = Math.max(0, Math.min(x2 - 8, event.x));
+        const startDate = x.invert(newX1);
+        
+        onTaskUpdate({
+          ...d,
+          start_date: startDate.toISOString().split('T')[0]
+        });
+      });
+
+    // Drag Behavior (Resize Right) - changes end date, clamped to [start+8, W]
+    const dragResizeRight = d3.drag<SVGRectElement, Task>()
+      .on('start', function (event) {
+        d3.select(this).style('cursor', 'grabbing');
+        event.sourceEvent.stopPropagation();
       })
       .on('drag', function (event, d) {
         if (d.type === 'milestone') return;
         const x1 = x(new Date(d.start_date))!;
-        const newX2 = Math.max(x1 + 8, event.x);
-        // const endDate = x.invert(newX2); // Not needed for visual update
+        const newX2 = Math.min(W, Math.max(x1 + 8, event.x));
         
         const bw = newX2 - x1;
         const group = d3.select(this.parentNode as SVGElement);
@@ -121,10 +178,9 @@ export function useGantt(
       .on('end', function (event, d) {
         d3.select(this).style('cursor', 'ew-resize');
         if (d.type === 'milestone' || !onTaskUpdate) return;
-        // Stop propagation so zoom doesn't receive this event
         event.sourceEvent.stopPropagation();
         const x1 = x(new Date(d.start_date))!;
-        const newX2 = Math.max(x1 + 8, event.x);
+        const newX2 = Math.min(W, Math.max(x1 + 8, event.x));
         const endDate = x.invert(newX2);
         
         onTaskUpdate({
@@ -176,16 +232,17 @@ export function useGantt(
           .attr('rx', 4).attr('fill', d3.color(color)!.darker(0.8).toString()).attr('opacity', 0.5)
           .style('pointer-events', 'none');
 
-        // Left Handle
+        // Left Handle (Resize)
         bar.append('rect').attr('class', 'handle-left')
           .attr('x', x1 - HANDLE_W / 2).attr('y', yy).attr('width', HANDLE_W).attr('height', bh)
-          .attr('fill', 'transparent').style('cursor', 'ew-resize');
+          .attr('fill', 'transparent').style('cursor', 'ew-resize')
+          .call(dragResizeLeft as any);
 
         // Right Handle (Resize)
         bar.append('rect').attr('class', 'handle-right')
           .attr('x', x2 - HANDLE_W / 2).attr('y', yy).attr('width', HANDLE_W).attr('height', bh)
           .attr('fill', '#fff').attr('opacity', 0.5).style('cursor', 'ew-resize')
-          .call(dragResize as any);
+          .call(dragResizeRight as any);
 
         // Assignee Label
         bar.append('text').attr('x', x1 + 4).attr('y', yy + bh / 2 + 4)
@@ -207,13 +264,13 @@ export function useGantt(
       });
     });
 
-    // Zoom behavior
-    const zoom = d3.zoom<SVGSVGElement, unknown>().scaleExtent([0.3, 5])
+    // Zoom behavior - apply only to pan-area rect, not whole SVG
+    const zoom = d3.zoom<SVGRectElement, unknown>().scaleExtent([0.3, 5])
       .on('zoom', e => {
         g.attr('transform', `translate(${MARGIN.left + e.transform.x},${MARGIN.top})`);
         g.select('.axis').call(d3.axisTop<Date>(e.transform.rescaleX(x)).ticks(tickCount).tickFormat(axisFmt as any) as any);
       });
-    svg.call(zoom);
+    panArea.call(zoom);
 
   }, [tasks, visibleDays, svgRef, onTaskUpdate, onTaskClick]);
 
