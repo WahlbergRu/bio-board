@@ -45,15 +45,15 @@ export default function Header({
       <div style={{ display: 'flex', gap: 6, marginLeft: 'auto', alignItems: 'center', flexWrap: 'wrap' }}>
         <button onClick={onSave} className="btn btn-primary" title={ui.savePlan}>{ui.savePlan}</button>
         <button onClick={onToggleAutoSave} className="btn"
-          style={{ fontSize: 11, padding: '4px 8px', color: autoSave ? '#7ED321' : '#888' }}>
+          style={{ color: autoSave ? '#7ED321' : '#888' }}>
           {autoSave ? ui.autoSaveOn : ui.autoSaveOff}
         </button>
-        <button onClick={onCreateTask} className="btn btn-primary" style={{ fontSize: 11 }}>➕ Задача</button>
+        <button onClick={onCreateTask} className="btn btn-primary">➕ Задача</button>
         <ExcelHandler onUpload={onUpload} onExport={onExport} onExportIcal={onExportIcal} />
         <button onClick={onSeed} className="btn" title={ui.seedData}>{ui.seedData}</button>
         {isAuthenticated
-          ? <button onClick={onLogout} className="btn" style={{ fontSize: 11 }}>{ui.logout}</button>
-          : <button onClick={onLogin} className="btn" style={{ fontSize: 11 }}>{ui.login}</button>
+          ? <button onClick={onLogout} className="btn">{ui.logout}</button>
+          : <button onClick={onLogin} className="btn">{ui.login}</button>
         }
       </div>
     </header>

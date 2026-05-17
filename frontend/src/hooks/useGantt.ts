@@ -54,7 +54,7 @@ export function useGantt(
 
     // Axis
     const axisFmt = visibleDays <= 7 ? d3.timeFormat('%d %b') : visibleDays <= 60 ? d3.timeFormat('%b %d') : d3.timeFormat('%b %Y');
-    g.append('g').call(d3.axisTop<Date>(x).ticks(tickCount).tickFormat(axisFmt as any));
+    g.append('g').attr('class', 'axis').call(d3.axisTop<Date>(x).ticks(tickCount).tickFormat(axisFmt as any));
 
     // Labels
     g.selectAll('.label').data(tasks).join('text')
