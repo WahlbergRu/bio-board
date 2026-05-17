@@ -15,12 +15,12 @@ export async function updateTask(
   id: string,
   payload: Partial<TaskFormData>,
 ): Promise<Task> {
-  const { data } = await client.put<Task>(`/tasks/${id}/`, payload);
+  const { data } = await client.put<Task>(`/tasks/${id}`, payload);
   return data;
 }
 
 export async function deleteTask(id: string): Promise<void> {
-  await client.delete(`/tasks/${id}/`);
+  await client.delete(`/tasks/${id}`);
 }
 
 export async function seedPlan(): Promise<void> {

@@ -75,7 +75,7 @@ export default function App() {
 
   const handleTaskUpdate = async (task: Task) => {
     try {
-      await client.put(`/tasks/${task.id}/`, task);
+      await client.put(`/tasks/${task.id}`, task);
       useStore.getState().updateTask(task.id, task);
     } catch (err) {
       console.error("Failed to update task", err);
