@@ -113,14 +113,15 @@ describe('test_excel_flow', () => {
     expect(screen.getByText(/Загрузить/)).toBeInTheDocument();
     expect(screen.getByText(/Экспорт/)).toBeInTheDocument();
 
-    // Open dropdown and click Excel export
-    fireEvent.click(screen.getByText(/Экспорт/));
+    // Open dropdown via export-dropdown container
+    const dropdown = document.querySelector('.export-dropdown')!;
+    fireEvent.click(dropdown.querySelector('button')!);
     const excelBtn = screen.getAllByText(/Excel/).find(el => el.tagName === 'BUTTON')!;
     fireEvent.click(excelBtn);
     expect(exportExcel).toHaveBeenCalled();
 
-    // Open dropdown again and click iCal export
-    fireEvent.click(screen.getByText(/Экспорт/));
+    // Open dropdown again and click iCal
+    fireEvent.click(dropdown.querySelector('button')!);
     const icalBtn = screen.getAllByText(/iCal/).find(el => el.tagName === 'BUTTON')!;
     fireEvent.click(icalBtn);
     expect(exportIcal).toHaveBeenCalled();
