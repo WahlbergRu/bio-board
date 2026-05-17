@@ -115,7 +115,8 @@ class CommandEngine:
         # Strategy 3: Heuristic - take the most likely noun
         if not target_name:
             stop_words = {
-                "задачу", "задача", "на", "в", "с", "и", "по", "для", "из", "от", "до", "к", "у",
+                "задачу", "задача", "задач", "задаче", "задачей",
+                "на", "в", "с", "и", "по", "для", "из", "от", "до", "к", "у",
                 "о", "об", "про", "без", "при", "через", "за", "под", "над", "между", "перед",
                 "после", "во", "около", "возле", "рядом", "близ", "далеко", "очень", "слишком",
                 "довольно", "весьма", "крайне", "невероятно", "фантастически", "потрясающе",
@@ -133,24 +134,21 @@ class CommandEngine:
                 "плутократией", "технократией", "меритократией", "геронтократией", "неократией",
                 "хунтой",
             }
-            # Special: extract task name after "задачу" or "задача"
-            task_words = {"задачу", "задача", "задач", "задаче", "задачей"}
-            task_idx = -1
-            for i, w in enumerate(words):
-                if w in task_words:
-                    task_idx = i
-                    break
             
-            if task_idx >= 0 and task_idx + 1 < len(words):
-                # Get word after "задачу/задача", before stop words
-                for w in words[task_idx + 1:]:
-                    if w in stop_words or w in ["для", "на", "по"]:
-                        break
-                    if not w.isdigit() and len(w) >= 1:
-                        target_name = w.capitalize()
-                        break
+            # For CREATE: find the verb and take FIRST word after it
+            if intent.get("action") == "create":
+                create_verbs = {"добавь", "создай", "new", "create", "создать"}
+                for i, w in enumerate(words):
+                    if w in create_verbs and i + 1 < len(words):
+                        for ww in words[i + 1:]:
+                            cleaned = ww.strip(".,!?:;")
+                            if cleaned.lower() not in stop_words and not cleaned.isdigit() and not re.match(r"^\d{4}-\d{2}-\d{2}$", cleaned):
+                                target_name = cleaned.capitalize()
+                                break
+                        if target_name:
+                            break
             
-            # Fallback: take the last likely noun
+            # For other actions: take LAST noun (backward compat)
             if not target_name:
                 nouns = [
                     w
@@ -159,7 +157,6 @@ class CommandEngine:
                 ]
                 if nouns:
                     target_name = nouns[-1].capitalize()
-                target_name = nouns[-1].capitalize()
 
         if target_name:
             intent["target_name"] = target_name
