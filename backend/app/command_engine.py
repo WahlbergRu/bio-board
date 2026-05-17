@@ -475,11 +475,15 @@ class CommandEngine:
         return f"✅ '{target.name}' теперь зависит от '{dep_target.name}'"
 
     def _do_multi_link(self, msg: str) -> str:
-        """Handle multiple link commands in one message."""
+        """Handle multiple link commands in one message.
+        
+        Pattern: 'A связан с B C привязан к D' where 'связан/привязан/зависит' 
+        are link keywords and 'с/от/к' are prepositions.
+        """
         link_keywords = ["свяжи", "связана", "связан", "связанная", "связаны", "зависит", "зависима", "зависимый", "зависимы", "привяжи", "привяза", "привязан", "привязана", "привязаны"]
         prepositions = {"с", "от", "к", "на"}
         stop_words = {
-            "одинарная", "мульти", "сложный", "запрос", "тест", "тестирование",
+            "одинарная", "мульти", "сложный", "запрос", "тест",
             "пример", "команда", "вот", "это", "так", "далее", "дальше",
         }
         words = msg.split()
@@ -490,33 +494,38 @@ class CommandEngine:
         if len(link_positions) < 1:
             return "❌ Не найдена команда связывания"
 
-        for pos in link_positions:
-            before = words[:pos]
-            after = words[pos + 1:]
-
-            # Extract target name (last word before keyword, skip stop words)
+        for idx, pos in enumerate(link_positions):
+            # Target: word immediately before the keyword
             target_name = None
-            for w in reversed(before):
-                cleaned = w.strip(".,!?:;")
-                if cleaned and not cleaned.isdigit() and cleaned not in stop_words:
-                    # Skip if word is a label (ends with colon)
+            if pos > 0:
+                for w in reversed(words[:pos]):
+                    cleaned = w.strip(".,!?:;")
                     if w.endswith(":"):
                         continue
-                    target_name = cleaned.capitalize()
-                    break
-
-            # Extract dependency name (handle prepositions, skip stop words)
-            dep_name = None
-            for i, w in enumerate(after):
-                cleaned = w.strip(".,!?:;")
-                if cleaned in link_keywords:
-                    break  # Stop at next link keyword
-                if w in prepositions and i + 1 < len(after):
-                    next_w = after[i + 1].strip(".,!?:;")
-                    if next_w not in stop_words and not next_w.endswith(":"):
-                        dep_name = next_w.capitalize()
+                    if cleaned and not cleaned.isdigit() and cleaned.lower() not in stop_words and cleaned.lower() not in link_keywords:
+                        target_name = cleaned.capitalize()
                         break
-                elif i == 0 and cleaned not in stop_words and not w.endswith(":"):
+
+            # Dep target: find next non-keyword word after keyword
+            # Skip preposition if present
+            dep_name = None
+            next_link = link_positions[idx + 1] if idx + 1 < len(link_positions) else len(words)
+            search_area = words[pos + 1:next_link]
+
+            for i, w in enumerate(search_area):
+                cleaned = w.strip(".,!?:;")
+                if w.endswith(":"):
+                    continue
+                if cleaned in link_keywords or cleaned.lower() in stop_words:
+                    continue
+                if w in prepositions:
+                    # Skip preposition, take next word
+                    if i + 1 < len(search_area):
+                        next_cleaned = search_area[i + 1].strip(".,!?:;")
+                        if next_cleaned and not next_cleaned.isdigit() and next_cleaned.lower() not in stop_words:
+                            dep_name = next_cleaned.capitalize()
+                            break
+                else:
                     dep_name = cleaned.capitalize()
                     break
 

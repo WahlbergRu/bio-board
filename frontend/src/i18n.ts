@@ -2,8 +2,8 @@ export const ui = {
   // Header
   title: 'AI Планировщик',
   seedData: '🌱 Демо-данные',
-  exportExcel: 'Экспорт Excel',
-  exportIcal: 'Экспорт iCal',
+  exportExcel: '📊 Excel',
+  exportIcal: ' iCal',
   savePlan: '💾 Сохранить',
   autoSaveOn: 'Автосохранение: ВКЛ',
   autoSaveOff: 'Автосохранение: ВЫКЛ',
@@ -49,7 +49,7 @@ export const ui = {
   taskTypeProject: 'Проект',
 
   // Excel
-  uploadExcel: 'Загрузить Excel',
+  uploadExcel: '📥 Загрузить',
   uploadMode: 'Режим импорта',
   mergeMode: 'Объединить',
   overwriteMode: 'Заменить',
