@@ -24,6 +24,7 @@ export default function CreateTaskModal({ isOpen, onClose, onCreate }: Props) {
     const endDate = form.end_date || new Date(today.getTime() + 3 * 86400000).toISOString().split('T')[0];
     const startDate = form.start_date || today.toISOString().split('T')[0];
     const task: Task = {
+      id: 'new',
       ...form,
       start_date: startDate,
       end_date: endDate,

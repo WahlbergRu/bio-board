@@ -110,17 +110,19 @@ describe('test_excel_flow', () => {
     const { exportIcal } = await import('../api/excel');
     render(<App />);
 
-    expect(screen.getByText(' Загрузить')).toBeInTheDocument();
-    expect(screen.getByText('Экспорт ')).toBeInTheDocument();
+    expect(screen.getByText(/Загрузить/)).toBeInTheDocument();
+    expect(screen.getByText(/Экспорт/)).toBeInTheDocument();
 
     // Open dropdown and click Excel export
-    fireEvent.click(screen.getByText('Экспорт ▾'));
-    fireEvent.click(screen.getByText('Excel'));
+    fireEvent.click(screen.getByText(/Экспорт/));
+    const excelBtn = screen.getAllByText(/Excel/).find(el => el.tagName === 'BUTTON')!;
+    fireEvent.click(excelBtn);
     expect(exportExcel).toHaveBeenCalled();
 
     // Open dropdown again and click iCal export
-    fireEvent.click(screen.getByText('Экспорт ▾'));
-    fireEvent.click(screen.getByText('iCal'));
+    fireEvent.click(screen.getByText(/Экспорт/));
+    const icalBtn = screen.getAllByText(/iCal/).find(el => el.tagName === 'BUTTON')!;
+    fireEvent.click(icalBtn);
     expect(exportIcal).toHaveBeenCalled();
   });
 });
