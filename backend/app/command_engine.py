@@ -116,12 +116,32 @@ class CommandEngine:
                 "плутократией", "технократией", "меритократией", "геронтократией", "неократией",
                 "хунтой",
             }
-            nouns = [
-                w
-                for w in words
-                if w not in stop_words and not w.isdigit() and not re.match(r"^\d{4}-\d{2}-\d{2}$", w) and len(w) > 1
-            ]
-            if nouns:
+            # Special: extract task name after "задачу" or "задача"
+            task_words = {"задачу", "задача", "задач", "задаче", "задачей"}
+            task_idx = -1
+            for i, w in enumerate(words):
+                if w in task_words:
+                    task_idx = i
+                    break
+            
+            if task_idx >= 0 and task_idx + 1 < len(words):
+                # Get word after "задачу/задача", before stop words
+                for w in words[task_idx + 1:]:
+                    if w in stop_words or w in ["для", "на", "по"]:
+                        break
+                    if not w.isdigit() and len(w) >= 1:
+                        target_name = w.capitalize()
+                        break
+            
+            # Fallback: take the last likely noun
+            if not target_name:
+                nouns = [
+                    w
+                    for w in words
+                    if w not in stop_words and not w.isdigit() and not re.match(r"^\d{4}-\d{2}-\d{2}$", w) and len(w) >= 1
+                ]
+                if nouns:
+                    target_name = nouns[-1].capitalize()
                 target_name = nouns[-1].capitalize()
 
         if target_name:
