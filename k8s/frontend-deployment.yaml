@@ -5,7 +5,7 @@ metadata:
   labels:
     app: frontend
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: frontend
@@ -16,7 +16,8 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: ai-gantt-frontend:latest
+          image: biotech-frontend:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
           resources:

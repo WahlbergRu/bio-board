@@ -5,7 +5,7 @@ metadata:
   labels:
     app: backend
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: backend
@@ -16,14 +16,13 @@ spec:
     spec:
       containers:
         - name: backend
-          image: ai-gantt-backend:latest
+          image: biotech-backend:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
           envFrom:
             - configMapRef:
-                name: ai-gantt-config
-            - secretRef:
-                name: ai-gantt-secrets
+                name: app-config
           resources:
             requests:
               cpu: 100m
@@ -35,8 +34,8 @@ spec:
             httpGet:
               path: /health
               port: 8000
-            initialDelaySeconds: 10
-            periodSeconds: 15
+            initialDelaySeconds: 5
+            periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /health
