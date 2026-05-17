@@ -1,5 +1,6 @@
 """Chat endpoint using CommandEngine + LLM fallback."""
 
+import json
 from collections.abc import AsyncGenerator
 
 from fastapi import APIRouter, Depends, Request
@@ -31,12 +32,12 @@ async def chat(
     store: PlanState = Depends(get_store),
     llm=Depends(get_llm),
 ):
-    """Chat endpoint: tries CommandEngine first, falls back to LLM."""
+    """Chat endpoint: tries CommandEngine first, falls back to LLM suggestions."""
     
     engine = CommandEngine(store)
     result_text = engine.parse_and_execute(body.message)
     
-    # Fallback to LLM if command engine didn't understand
+    # Check if command engine didn't understand
     needs_llm = result_text.startswith("❌") or result_text.startswith("❓")
     
     if needs_llm and llm:
@@ -49,22 +50,43 @@ async def chat(
             )
         plan_context = "\n".join(plan_lines) if plan_lines else "(empty plan)"
         
-        async def llm_stream():
-            # Build conversation history for context
-            messages = [{"role": "user", "content": body.message}]
-            if body.history:
-                messages = body.history + messages
-            
-            # Stream LLM response as SSE with plain text (not JSON)
-            async for chunk in llm.chat(messages, tools=[], plan_context=plan_context):
+        async def llm_suggestions_stream():
+            # Stream raw LLM output
+            full_response = ""
+            async for chunk in llm.suggest_commands(body.message, plan_context, error_context=result_text):
+                full_response += chunk
+                # Stream raw chunks for potential future use
                 yield f"data: {chunk}\n\n"
+            
+            # Try to parse as JSON suggestions
+            try:
+                # Clean potential markdown
+                cleaned = full_response.strip()
+                if cleaned.startswith("```"):
+                    cleaned = cleaned.split("```")[1]
+                    if cleaned.startswith("json"):
+                        cleaned = cleaned[4:]
+                    cleaned = cleaned.rstrip("`").strip()
+                
+                parsed = json.loads(cleaned)
+                if isinstance(parsed, dict) and "suggestions" in parsed:
+                    # Send structured suggestions
+                    suggestions_payload = json.dumps({
+                        "type": "suggestions",
+                        "note": parsed.get("note", ""),
+                        "commands": parsed["suggestions"],
+                    })
+                    yield f"data: {suggestions_payload}\n\n"
+            except (json.JSONDecodeError, IndexError):
+                # Fallback: just text response
+                pass
+            
             yield "data: [DONE]\n\n"
         
-        return StreamingResponse(llm_stream(), media_type="text/event-stream")
+        return StreamingResponse(llm_suggestions_stream(), media_type="text/event-stream")
     
-    # Return plain text via SSE (no JSON chunks)
+    # Return plain text via SSE (command executed successfully)
     async def text_stream():
-        # SSE format: plain text without JSON wrapping
         yield f"data: {result_text}\n\n"
         yield "data: [DONE]\n\n"
     

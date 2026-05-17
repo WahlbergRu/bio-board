@@ -41,7 +41,11 @@ class PlanState:
         if len(self.tasks) >= self.MAX_TASKS:
             return f"error: Maximum {self.MAX_TASKS} tasks reached"
         tid = self._next_id()
-        task = Task(id=tid, **data.model_dump())
+        task_data = data.model_dump()
+        # Resolve dependency names to IDs
+        if task_data.get("dependencies"):
+            task_data["dependencies"] = self._resolve_dependencies(task_data["dependencies"])
+        task = Task(id=tid, **task_data)
         self.tasks[tid] = task
         self.save()
         return task
@@ -52,6 +56,9 @@ class PlanState:
             return None
         updates = data.model_dump(exclude_unset=True)
         updates.pop("id", None)
+        # Resolve dependency names to IDs
+        if "dependencies" in updates and updates["dependencies"] is not None:
+            updates["dependencies"] = self._resolve_dependencies(updates["dependencies"])
         for k, v in updates.items():
             setattr(task, k, v)
         self.save()
@@ -137,6 +144,31 @@ class PlanState:
                 dependencies=st.dependencies,
             )
         self.save()
+
+    # ── name resolution ──────────────────────────────────────────
+
+    def _resolve_name_to_id(self, name: str) -> str | None:
+        """Find task by name (exact or partial match), return its ID."""
+        name_lower = name.lower().strip()
+        for t in self.tasks.values():
+            if t.name.lower() == name_lower or name_lower in t.name.lower():
+                return t.id
+        return None
+
+    def _resolve_dependencies(self, deps: list[str]) -> list[str]:
+        """Resolve dependency names/IDs to IDs. Already-ID values pass through."""
+        resolved = []
+        for d in deps:
+            # If it looks like an ID (numeric string), keep it
+            if d.isdigit():
+                if d in self.tasks:
+                    resolved.append(d)
+            else:
+                # Treat as task name → resolve to ID
+                rid = self._resolve_name_to_id(d)
+                if rid:
+                    resolved.append(rid)
+        return resolved
 
     # ── id generation ────────────────────────────────────────────
 

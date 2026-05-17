@@ -46,6 +46,10 @@ class CommandEngine:
                 return self._do_move(intents)
             elif action == "create":
                 return self._do_create(intents)
+            elif action == "link":
+                if intents.get("multi"):
+                    return self._do_multi_link(msg)
+                return self._do_link(intents)
             else:
                 return "❓ Неизвестная команда."
         except Exception as e:
@@ -72,6 +76,19 @@ class CommandEngine:
             intent["action"] = "assign"
         elif any(w in words for w in ["добавь", "создай", "добавь", "new", "create", "создать"]):
             intent["action"] = "create"
+        # Link/dependency action - must be checked AFTER other actions
+        elif any(w in words for w in ["свяжи", "связана", "связан", "связанная", "связаны", "зависит", "зависима", "зависимый", "зависимы", "зависит", "привяжи", "привяза", "привязан", "привязана", "привязаны"]):
+            # Check for multiple link commands in one message
+            link_keywords = ["свяжи", "связана", "связан", "связанная", "связаны", "зависит", "зависима", "зависимый", "зависимы", "зависит", "привяжи", "привяза", "привязан", "привязана", "привязаны"]
+            link_count = sum(1 for w in words if w in link_keywords)
+            if link_count > 1:
+                intent["action"] = "link"
+                intent["multi"] = True
+                return intent  # Will be handled specially in parse_and_execute
+            intent["action"] = "link"
+            # Parse two-task dependency
+            self._parse_dependency_target(words, msg, intent)
+            return intent if intent.get("target_name") and intent.get("dep_target_name") else None
         else:
             return None
 
@@ -200,6 +217,64 @@ class CommandEngine:
             if t.name.lower() == name.lower() or name.lower() in t.name.lower():
                 return t
         return None
+
+    def _parse_dependency_target(self, words: list[str], msg: str, intent: dict) -> None:
+        """Parse two task names from a link command like 'X связана с Y' or 'X зависит от Y'."""
+        tasks = self.store.get_all_tasks()
+        stop_words = {
+            "свяжи", "связана", "связан", "связанная", "связаны", "зависит", "зависима", "зависимый",
+            "зависимы", "привяжи", "привяза", "привязан", "привязана", "привязаны",
+            "задачу", "задача", "задач", "задаче", "задачей",
+            "с", "от", "к", "на", "в", "и", "по", "для", "из", "до", "у", "о", "об", "про",
+        }
+
+        # Find link keywords and their positions
+        link_words = {"свяжи", "связана", "связан", "связанная", "связаны", "зависит", "зависима", "зависимый", "зависимы", "привяжи", "привяза", "привязан", "привязана", "привязаны"}
+        link_pos = -1
+        for i, w in enumerate(words):
+            if w in link_words:
+                link_pos = i
+                break
+
+        if link_pos < 0:
+            return
+
+        # Split into before-link and after-link parts
+        before = words[:link_pos]
+        after = words[link_pos + 1:]
+
+        # Extract target_name from before-link (last meaningful word)
+        target_name = None
+        for w in reversed(before):
+            w_clean = w.strip(".,!?;:")
+            if w_clean and w_clean not in stop_words and not w_clean.isdigit():
+                target_name = w_clean.capitalize()
+                break
+
+        # Extract dep_target_name from after-link
+        # Handle prepositions: "с X", "от X", "к X"
+        dep_name = None
+        prepositions = {"с", "от", "к", "на", "в"}
+        skip_next = False
+        for i, w in enumerate(after):
+            if skip_next:
+                skip_next = False
+                continue
+            if w in prepositions and i + 1 < len(after):
+                dep_name = after[i + 1].strip(".,!?;:")
+                skip_next = True
+                break
+            elif w not in stop_words and not w.isdigit():
+                dep_name = w.strip(".,!?;:")
+                break
+
+        if dep_name:
+            dep_name = dep_name.capitalize()
+
+        if target_name:
+            intent["target_name"] = target_name
+        if dep_name:
+            intent["dep_target_name"] = dep_name
 
     def _do_shift_tree(self, intent: dict) -> str:
         """Shifts a task and ALL its dependents (subtree) by N days."""
@@ -347,3 +422,100 @@ class CommandEngine:
             return task_id  # Error from store
         
         return f"✅ Создал задачу '{target_name}' ({start} → {end})"
+
+    def _do_link(self, intent: dict) -> str:
+        """Links two tasks: target depends on dep_target. Auto-creates missing tasks."""
+        target_name = str(intent.get("target_name", ""))
+        dep_target_name = str(intent.get("dep_target_name", ""))
+
+        if not target_name or not dep_target_name:
+            return "❌ Укажи две задачи: 'X связана с Y'"
+
+        target = self._find_task_by_name(target_name)
+        if not target:
+            # Auto-create missing task
+            from datetime import date
+            today = date.today()
+            start = today.strftime("%Y-%m-%d")
+            end = (today + timedelta(days=3)).strftime("%Y-%m-%d")
+            new_task = TaskCreate(name=target_name, start_date=start, end_date=end, progress=0)
+            result = self.store.create_task(new_task)
+            if isinstance(result, str) and result.startswith("error"):
+                return f"❌ Не удалось создать задачу '{target_name}'"
+            target = result
+            if isinstance(target, str):
+                target = self._find_task_by_name(target_name)
+
+        dep_target = self._find_task_by_name(dep_target_name)
+        if not dep_target:
+            # Auto-create missing dependency task
+            from datetime import date
+            today = date.today()
+            start = today.strftime("%Y-%m-%d")
+            end = (today + timedelta(days=3)).strftime("%Y-%m-%d")
+            new_task = TaskCreate(name=dep_target_name, start_date=start, end_date=end, progress=0)
+            result = self.store.create_task(new_task)
+            if isinstance(result, str) and result.startswith("error"):
+                return f"❌ Не удалось создать задачу '{dep_target_name}'"
+            dep_target = result
+            if isinstance(dep_target, str):
+                dep_target = self._find_task_by_name(dep_target_name)
+
+        if target.id == dep_target.id:
+            return "❌ Нельзя связать задачу саму с собой."
+
+        # Add dependency: target depends on dep_target (dep_target must finish before target starts)
+        if dep_target.id in target.dependencies:
+            return f"✅ '{target.name}' уже зависит от '{dep_target.name}'"
+
+        success = self.store.add_dependency(target.id, dep_target.id)
+        if not success:
+            return f"❌ Не удалось создать связь (возможен цикл)."
+
+        return f"✅ '{target.name}' теперь зависит от '{dep_target.name}'"
+
+    def _do_multi_link(self, msg: str) -> str:
+        """Handle multiple link commands in one message."""
+        link_keywords = ["свяжи", "связана", "связан", "связанная", "связаны", "зависит", "зависима", "зависимый", "зависимы", "привяжи", "привяза", "привязан", "привязана", "привязаны"]
+        words = msg.split()
+
+        results = []
+        # Find all link keyword positions
+        link_positions = [i for i, w in enumerate(words) if w in link_keywords]
+
+        if len(link_positions) < 1:
+            return "❌ Не найдена команда связывания"
+
+        # Process each link command
+        for pos in link_positions:
+            before = words[:pos]
+            after = words[pos + 1:]
+
+            # Extract target name (last word before keyword)
+            target_name = None
+            for w in reversed(before):
+                if w.strip(".,!?;:") and not w.isdigit():
+                    target_name = w.strip(".,!?:;").capitalize()
+                    break
+
+            # Extract dependency name (handle prepositions)
+            dep_name = None
+            prepositions = {"с", "от", "к", "на"}
+            for i, w in enumerate(after):
+                if w in prepositions and i + 1 < len(after):
+                    dep_name = after[i + 1].strip(".,!?;:").capitalize()
+                    break
+                elif i == 0 and w not in link_keywords:
+                    dep_name = w.strip(".,!?;:").capitalize()
+                    break
+
+            if target_name and dep_name:
+                # Execute single link
+                intent = {"target_name": target_name, "dep_target_name": dep_name}
+                result = self._do_link(intent)
+                results.append(result)
+
+        if not results:
+            return "❌ Не удалось распознать пары задач"
+
+        return "✅ " + " | ".join(results)
