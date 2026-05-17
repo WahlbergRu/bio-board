@@ -193,3 +193,123 @@ def test_plan_persistence(client, tmp_path):
     app.state.store._file_path = Path("plan.json")
     app.state.store.tasks.clear()
     app.state.store.save()
+
+
+# ── 7. Chat e2e: LLM suggestions + fast parser ───────────────────
+
+def test_chat_fast_parser_create(client):
+    """Fast parser: create task without LLM."""
+    app.state.store.tasks.clear()
+    app.state.store.save()
+
+    r = client.post("/api/chat/", json={"message": "добавь задачу Тест", "history": []})
+    assert r.status_code == 200
+    assert "text/event-stream" in r.headers.get("content-type", "")
+    body = r.content.decode()
+    assert "✅" in body
+    assert "Тест" in body
+
+    # Verify task was actually created
+    tasks = client.get("/api/tasks/").json()
+    assert len(tasks) >= 1
+    assert any(t["name"] == "Тест" for t in tasks)
+
+
+def test_chat_fast_parser_link(client):
+    """Fast parser: link two tasks."""
+    app.state.store.tasks.clear()
+    app.state.store.save()
+
+    # Create tasks
+    client.post("/api/tasks/", json={"name": "A", "start_date": "2026-05-17", "end_date": "2026-05-20"})
+    client.post("/api/tasks/", json={"name": "B", "start_date": "2026-05-17", "end_date": "2026-05-20"})
+
+    r = client.post("/api/chat/", json={"message": "A связана с B", "history": []})
+    assert r.status_code == 200
+    body = r.content.decode()
+    assert "✅" in body
+
+    # Verify dependency was set
+    tasks = client.get("/api/tasks/").json()
+    task_a = next(t for t in tasks if t["name"] == "A")
+    # B should be in A's dependencies (resolved to ID)
+    assert len(task_a["dependencies"]) > 0
+
+
+def test_chat_fast_parser_multi_link(client):
+    """Fast parser: multiple link commands in one message."""
+    app.state.store.tasks.clear()
+    app.state.store.save()
+
+    client.post("/api/tasks/", json={"name": "Frontend", "start_date": "2026-05-17", "end_date": "2026-05-20"})
+    client.post("/api/tasks/", json={"name": "Backend", "start_date": "2026-05-17", "end_date": "2026-05-20"})
+    client.post("/api/tasks/", json={"name": "API", "start_date": "2026-05-17", "end_date": "2026-05-20"})
+    client.post("/api/tasks/", json={"name": "Database", "start_date": "2026-05-17", "end_date": "2026-05-20"})
+
+    r = client.post("/api/chat/", json={"message": "Frontend связан с Backend API привязан к Database", "history": []})
+    assert r.status_code == 200
+    body = r.content.decode()
+    assert "✅" in body
+    assert "Frontend" in body
+    # API might be capitalized as-is
+    assert "API" in body or "Api" in body
+
+    tasks = client.get("/api/tasks/").json()
+    task_fe = next(t for t in tasks if t["name"] == "Frontend")
+    task_api = next(t for t in tasks if t["name"] == "API")
+    assert len(task_fe["dependencies"]) > 0
+    assert len(task_api["dependencies"]) > 0
+
+
+def test_chat_llm_suggestions_json(client, monkeypatch):
+    """LLM fallback: returns JSON suggestions with buttons."""
+    app.state.store.tasks.clear()
+    app.state.store.save()
+
+    # Mock LLM to return JSON suggestions (no [DONE], route adds it)
+    async def mock_suggest(self, msg, plan_context, error_context=""):
+        yield '{"suggestions": [{"label": "Связать Backend → Frontend", "command": "Backend связана с Frontend"}], "note": "Выберите команду:"}'
+
+    monkeypatch.setattr("app.llm_agent.LLMAgent.suggest_commands", mock_suggest)
+
+    r = client.post("/api/chat/", json={"message": "привяжи бэкенд к фронту", "history": []})
+    assert r.status_code == 200
+    assert "text/event-stream" in r.headers.get("content-type", "")
+    body = r.content.decode()
+    # Should contain JSON suggestions
+    assert '"type": "suggestions"' in body
+    assert "Backend связана с Frontend" in body
+
+
+def test_chat_full_flow_suggest_execute(client, monkeypatch):
+    """Full e2e: user asks in natural language → gets suggestions → clicks → executes."""
+    app.state.store.tasks.clear()
+    app.state.store.save()
+
+    # Step 1: Create tasks via REST API (simulate existing plan)
+    client.post("/api/tasks/", json={"name": "Backend", "start_date": "2026-05-17", "end_date": "2026-05-20"})
+    client.post("/api/tasks/", json={"name": "Frontend", "start_date": "2026-05-21", "end_date": "2026-05-28"})
+
+    # Step 2: User sends natural language request → LLM suggests
+    async def mock_suggest(self, msg, plan_context, error_context=""):
+        yield '{"suggestions": [{"label": "Связать Backend → Frontend", "command": "Frontend связана с Backend"}], "note": "Нашёл 5 задач. Вот команды:"}'
+
+    monkeypatch.setattr("app.llm_agent.LLMAgent.suggest_commands", mock_suggest)
+
+    r = client.post("/api/chat/", json={"message": "сделай так чтобы фронтенд зависел от бэкенда", "history": []})
+    assert r.status_code == 200
+    body = r.content.decode()
+    assert '"type": "suggestions"' in body
+    assert "Frontend связана с Backend" in body
+
+    # Step 3: User clicks suggestion → fast parser executes
+    r2 = client.post("/api/chat/", json={"message": "Frontend связана с Backend", "history": []})
+    assert r2.status_code == 200
+    body2 = r2.content.decode()
+    assert "✅" in body2
+
+    # Step 4: Verify dependency was set
+    tasks = client.get("/api/tasks/").json()
+    task_fe = next(t for t in tasks if t["name"] == "Frontend")
+    task_be = next(t for t in tasks if t["name"] == "Backend")
+    assert task_be["id"] in task_fe["dependencies"]

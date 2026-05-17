@@ -477,40 +477,50 @@ class CommandEngine:
     def _do_multi_link(self, msg: str) -> str:
         """Handle multiple link commands in one message."""
         link_keywords = ["свяжи", "связана", "связан", "связанная", "связаны", "зависит", "зависима", "зависимый", "зависимы", "привяжи", "привяза", "привязан", "привязана", "привязаны"]
+        prepositions = {"с", "от", "к", "на"}
+        stop_words = {
+            "одинарная", "мульти", "сложный", "запрос", "тест", "тестирование",
+            "пример", "команда", "вот", "это", "так", "далее", "дальше",
+        }
         words = msg.split()
 
         results = []
-        # Find all link keyword positions
         link_positions = [i for i, w in enumerate(words) if w in link_keywords]
 
         if len(link_positions) < 1:
             return "❌ Не найдена команда связывания"
 
-        # Process each link command
         for pos in link_positions:
             before = words[:pos]
             after = words[pos + 1:]
 
-            # Extract target name (last word before keyword)
+            # Extract target name (last word before keyword, skip stop words)
             target_name = None
             for w in reversed(before):
-                if w.strip(".,!?;:") and not w.isdigit():
-                    target_name = w.strip(".,!?:;").capitalize()
+                cleaned = w.strip(".,!?:;")
+                if cleaned and not cleaned.isdigit() and cleaned not in stop_words:
+                    # Skip if word is a label (ends with colon)
+                    if w.endswith(":"):
+                        continue
+                    target_name = cleaned.capitalize()
                     break
 
-            # Extract dependency name (handle prepositions)
+            # Extract dependency name (handle prepositions, skip stop words)
             dep_name = None
-            prepositions = {"с", "от", "к", "на"}
             for i, w in enumerate(after):
+                cleaned = w.strip(".,!?:;")
+                if cleaned in link_keywords:
+                    break  # Stop at next link keyword
                 if w in prepositions and i + 1 < len(after):
-                    dep_name = after[i + 1].strip(".,!?;:").capitalize()
-                    break
-                elif i == 0 and w not in link_keywords:
-                    dep_name = w.strip(".,!?;:").capitalize()
+                    next_w = after[i + 1].strip(".,!?:;")
+                    if next_w not in stop_words and not next_w.endswith(":"):
+                        dep_name = next_w.capitalize()
+                        break
+                elif i == 0 and cleaned not in stop_words and not w.endswith(":"):
+                    dep_name = cleaned.capitalize()
                     break
 
             if target_name and dep_name:
-                # Execute single link
                 intent = {"target_name": target_name, "dep_target_name": dep_name}
                 result = self._do_link(intent)
                 results.append(result)
