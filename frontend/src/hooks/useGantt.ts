@@ -40,7 +40,12 @@ export function useGantt(
     const x = d3.scaleTime().domain([domainStart, domainEnd]).range([0, W]);
     const y = d3.scaleBand<Task>().domain(tasks).range([0, H]).padding(0.25);
 
-    // Grid
+    // Grid background for panning
+    g.append('rect').attr('class', 'pan-area')
+      .attr('x', 0).attr('y', 0).attr('width', W).attr('height', H)
+      .attr('fill', 'transparent').attr('cursor', 'grab');
+
+    // Grid lines
     const tickCount = Math.min(visibleDays, 20);
     g.append('g').selectAll('line').data(x.ticks(tickCount)).join('line')
       .attr('x1', d => x(d)).attr('x2', d => x(d)).attr('y1', 0).attr('y2', H)
@@ -61,6 +66,9 @@ export function useGantt(
 
     // Drag Behavior (Move)
     const dragMove = d3.drag<SVGGElement, Task>()
+      .on('start', function () {
+        d3.select(this).style('cursor', 'grabbing');
+      })
       .on('drag', function (event, d) {
         if (d.type === 'milestone') return;
         const daysDelta = Math.round(event.dx / (W / visibleDays));
@@ -78,6 +86,7 @@ export function useGantt(
         d3.select(this).select('.progress-rect').attr('x', newX1).attr('width', bw * d.progress / 100);
       })
       .on('end', function (event, d) {
+        d3.select(this).style('cursor', 'grab');
         if (d.type === 'milestone' || !onTaskUpdate) return;
         // Stop propagation so zoom doesn't receive this event
         event.sourceEvent.stopPropagation();
@@ -94,6 +103,9 @@ export function useGantt(
 
     // Drag Behavior (Resize Right)
     const dragResize = d3.drag<SVGRectElement, Task>()
+      .on('start', function () {
+        d3.select(this).style('cursor', 'grabbing');
+      })
       .on('drag', function (event, d) {
         if (d.type === 'milestone') return;
         const x1 = x(new Date(d.start_date))!;
@@ -107,6 +119,7 @@ export function useGantt(
         group.select('.handle-right').attr('x', newX2 - HANDLE_W / 2);
       })
       .on('end', function (event, d) {
+        d3.select(this).style('cursor', 'ew-resize');
         if (d.type === 'milestone' || !onTaskUpdate) return;
         // Stop propagation so zoom doesn't receive this event
         event.sourceEvent.stopPropagation();
