@@ -44,6 +44,8 @@ class CommandEngine:
                 return self._do_delete(intents)
             elif action == "move":
                 return self._do_move(intents)
+            elif action == "create":
+                return self._do_create(intents)
             else:
                 return "❓ Неизвестная команда."
         except Exception as e:
@@ -68,6 +70,8 @@ class CommandEngine:
             intent["action"] = "delete"
         elif any(w in words for w in ["назначь", "assign", "ответственный", "исполнитель"]):
             intent["action"] = "assign"
+        elif any(w in words for w in ["добавь", "создай", "добавь", "new", "create", "создать"]):
+            intent["action"] = "create"
         else:
             return None
 
@@ -298,3 +302,28 @@ class CommandEngine:
             return f"✅ Перенёс '{task.name}' на {target_date}"
         except Exception as e:
             return f"❌ Ошибка: {str(e)}"
+
+    def _do_create(self, intent: dict) -> str:
+        """Creates a new task with the given name."""
+        target_name = str(intent.get("target_name", ""))
+        
+        if not target_name:
+            return "❌ Не указано название задачи (напр: 'добавь задачу Тест')."
+        
+        from datetime import date
+        today = date.today()
+        start = today.strftime("%Y-%m-%d")
+        end = (today + timedelta(days=3)).strftime("%Y-%m-%d")
+        
+        new_task = TaskCreate(
+            name=target_name,
+            start_date=start,
+            end_date=end,
+            progress=0,
+        )
+        
+        task_id = self.store.create_task(new_task)
+        if isinstance(task_id, str) and task_id.startswith("❌"):
+            return task_id  # Error from store
+        
+        return f"✅ Создал задачу '{target_name}' ({start} → {end})"
