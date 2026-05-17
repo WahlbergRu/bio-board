@@ -74,15 +74,17 @@ describe('TaskModal', () => {
 });
 
 describe('ExcelHandler', () => {
-  it('renders upload and export buttons', () => {
+  it('renders upload button and export dropdown', () => {
     render(<ExcelHandler onUpload={() => {}} onExport={() => {}} onExportIcal={() => {}} />);
-    expect(screen.getByText('Загрузить Excel')).toBeInTheDocument();
-    expect(screen.getByText('Экспорт Excel')).toBeInTheDocument();
+    expect(screen.getByText(/Загрузить/)).toBeInTheDocument();
+    expect(screen.getByText(/Экспорт/)).toBeInTheDocument();
   });
 
-  it('renders iCal export button', () => {
+  it('opens export dropdown and shows options', () => {
     render(<ExcelHandler onUpload={() => {}} onExport={() => {}} onExportIcal={() => {}} />);
-    expect(screen.getByText('Экспорт iCal')).toBeInTheDocument();
+    fireEvent.click(screen.getByText(/Экспорт/));
+    expect(screen.getByText(/Excel/)).toBeInTheDocument();
+    expect(screen.getByText(/iCal/)).toBeInTheDocument();
   });
 });
 

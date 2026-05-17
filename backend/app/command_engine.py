@@ -477,8 +477,8 @@ class CommandEngine:
     def _do_multi_link(self, msg: str) -> str:
         """Handle multiple link commands in one message.
         
-        Pattern: 'A связан с B C привязан к D' where 'связан/привязан/зависит' 
-        are link keywords and 'с/от/к' are prepositions.
+        Pattern: 'A связан с B C привязан к D' where keywords split commands.
+        Strategy: Split message by link keywords, then parse each segment.
         """
         link_keywords = ["свяжи", "связана", "связан", "связанная", "связаны", "зависит", "зависима", "зависимый", "зависимы", "привяжи", "привяза", "привязан", "привязана", "привязаны"]
         prepositions = {"с", "от", "к", "на"}
@@ -487,45 +487,40 @@ class CommandEngine:
             "пример", "команда", "вот", "это", "так", "далее", "дальше",
         }
         words = msg.split()
-
-        results = []
         link_positions = [i for i, w in enumerate(words) if w in link_keywords]
 
         if len(link_positions) < 1:
             return "❌ Не найдена команда связывания"
 
+        results = []
         for idx, pos in enumerate(link_positions):
-            # Target: word immediately before the keyword
+            # Target: the last meaningful word IMMEDIATELY before the keyword
             target_name = None
-            if pos > 0:
-                for w in reversed(words[:pos]):
-                    cleaned = w.strip(".,!?:;")
-                    if w.endswith(":"):
-                        continue
-                    if cleaned and not cleaned.isdigit() and cleaned.lower() not in stop_words and cleaned.lower() not in link_keywords:
-                        target_name = cleaned.capitalize()
-                        break
-
-            # Dep target: find next non-keyword word after keyword
-            # Skip preposition if present
-            dep_name = None
-            next_link = link_positions[idx + 1] if idx + 1 < len(link_positions) else len(words)
-            search_area = words[pos + 1:next_link]
-
-            for i, w in enumerate(search_area):
+            for i in range(pos - 1, -1, -1):
+                w = words[i]
                 cleaned = w.strip(".,!?:;")
                 if w.endswith(":"):
                     continue
-                if cleaned in link_keywords or cleaned.lower() in stop_words:
+                if cleaned.lower() in link_keywords:
+                    break  # Hit another keyword
+                if cleaned and not cleaned.isdigit() and cleaned.lower() not in stop_words and cleaned.lower() not in prepositions:
+                    target_name = cleaned.capitalize()
+                    break
+
+            # Dep: first meaningful word AFTER the keyword, skipping preposition
+            dep_name = None
+            next_link = link_positions[idx + 1] if idx + 1 < len(link_positions) else len(words)
+            
+            for i in range(pos + 1, next_link):
+                w = words[i]
+                cleaned = w.strip(".,!?:;")
+                if w.endswith(":"):
+                    continue
+                if cleaned.lower() in stop_words:
                     continue
                 if w in prepositions:
-                    # Skip preposition, take next word
-                    if i + 1 < len(search_area):
-                        next_cleaned = search_area[i + 1].strip(".,!?:;")
-                        if next_cleaned and not next_cleaned.isdigit() and next_cleaned.lower() not in stop_words:
-                            dep_name = next_cleaned.capitalize()
-                            break
-                else:
+                    continue  # skip preposition
+                if cleaned and not cleaned.isdigit():
                     dep_name = cleaned.capitalize()
                     break
 

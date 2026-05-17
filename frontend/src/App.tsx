@@ -115,9 +115,10 @@ export default function App() {
     }
   };
 
-  const handleCreateTask = async (data: { name: string; assignee: string; days: number }) => {
-    await runCommand(`Добавь задачу ${data.name} на ${data.days} дней с исполнителем ${data.assignee || 'Unassigned'}`);
-    notify(`Задача "${data.name}" создана`);
+  const handleCreateTask = async (task: Task) => {
+    const days = Math.ceil((new Date(task.end_date).getTime() - new Date(task.start_date).getTime()) / 86400000) || 3;
+    await runCommand(`Добавь задачу ${task.name} на ${days} дней с исполнителем ${task.assignee || 'Unassigned'}`);
+    notify(`Задача "${task.name}" создана`);
   };
 
   const handleSeed = () => { seedPlan().then(() => fetchTasks()).then(setTasks).catch(() => {}); };

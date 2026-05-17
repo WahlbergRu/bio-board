@@ -69,7 +69,7 @@ export default function ExcelHandler({ onUpload, onExport, onExportIcal }: Props
               }}
               onMouseEnter={e => (e.currentTarget.style.background = '#1a1a2e')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-              📊 {ui.exportExcel.replace('📊 ', '')}
+              📊 Excel
             </button>
             <button onClick={() => { onExportIcal(); setExportOpen(false); }}
               style={{
@@ -79,7 +79,7 @@ export default function ExcelHandler({ onUpload, onExport, onExportIcal }: Props
               }}
               onMouseEnter={e => (e.currentTarget.style.background = '#1a1a2e')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-              📅 {ui.exportIcal.replace(' ', '')}
+              📅 iCal
             </button>
           </div>
         )}

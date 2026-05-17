@@ -240,3 +240,12 @@ header .btn-primary {
 }
 
 header .btn-primary:hover { background: var(--accent-hover); }
+
+/* Header button separators */
+header .btn-sep {
+  width: 1px;
+  height: 24px;
+  background: #333;
+  margin: 0 4px;
+  flex-shrink: 0;
+}

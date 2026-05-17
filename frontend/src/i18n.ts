@@ -3,7 +3,7 @@ export const ui = {
   title: 'AI Планировщик',
   seedData: '🌱 Демо-данные',
   exportExcel: '📊 Excel',
-  exportIcal: ' iCal',
+  exportIcal: '📅 iCal',
   savePlan: '💾 Сохранить',
   autoSaveOn: 'Автосохранение: ВКЛ',
   autoSaveOff: 'Автосохранение: ВЫКЛ',

@@ -48,8 +48,10 @@ export default function Header({
           style={{ color: autoSave ? '#7ED321' : '#888' }}>
           {autoSave ? ui.autoSaveOn : ui.autoSaveOff}
         </button>
-        <button onClick={onCreateTask} className="btn btn-primary">➕ Задача</button>
+        <span className="btn-sep" />
+        <button onClick={onCreateTask} className="btn btn-primary"> Задача</button>
         <ExcelHandler onUpload={onUpload} onExport={onExport} onExportIcal={onExportIcal} />
+        <span className="btn-sep" />
         <button onClick={onSeed} className="btn" title={ui.seedData}>{ui.seedData}</button>
         {isAuthenticated
           ? <button onClick={onLogout} className="btn">{ui.logout}</button>
