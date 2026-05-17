@@ -34,11 +34,11 @@ export default function ExcelHandler({ onUpload, onExport, onExportIcal }: Props
   return (
     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
       <input ref={ref} type="file" hidden accept=".xlsx,.xls" onChange={handleFile} />
-      <button onClick={() => ref.current?.click()} disabled={loading} className="btn" style={{ fontSize: 11, padding: '4px 10px' }}>
+      <button onClick={() => ref.current?.click()} disabled={loading} className="btn">
         {loading ? ui.parsing : ui.uploadExcel}
       </button>
-      <button onClick={onExport} className="btn" style={{ fontSize: 11, padding: '4px 10px' }}>{ui.exportExcel}</button>
-      <button onClick={onExportIcal} className="btn" style={{ fontSize: 11, padding: '4px 10px' }}>{ui.exportIcal}</button>
+      <button onClick={onExport} className="btn">{ui.exportExcel}</button>
+      <button onClick={onExportIcal} className="btn">{ui.exportIcal}</button>
       {progress && <span style={{ fontSize: 10, color: '#7ED321' }}>{progress}</span>}
     </div>
   );

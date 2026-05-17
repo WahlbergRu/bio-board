@@ -15,10 +15,10 @@ export default function ViewSwitcher({ currentMode, onChange }: Props) {
       {tabs.map(t => (
         <button key={t.key} onClick={() => onChange(t.key)}
           style={{
-            padding: '4px 12px', border: 'none', borderRadius: 4,
+            padding: '6px 12px', border: 'none', borderRadius: 4,
             background: currentMode === t.key ? '#4A90D9' : 'transparent',
             color: currentMode === t.key ? '#fff' : '#999',
-            cursor: 'pointer', fontSize: 12, fontWeight: 500,
+            cursor: 'pointer', fontSize: 13, fontWeight: 500, height: 36,
           }}>
           {t.label}
         </button>

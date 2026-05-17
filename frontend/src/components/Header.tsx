@@ -36,7 +36,7 @@ export default function Header({
       </h1>
       <ViewSwitcher currentMode={viewMode} onChange={onViewChange} />
       <select value={zoomLevel} onChange={e => onZoomChange(e.target.value as any)}
-        style={{ padding: '4px 8px', background: '#2a2a4e', color: '#eee', border: '1px solid #444', borderRadius: 4, fontSize: 12 }}>
+        style={{ padding: '6px 10px', background: '#2a2a4e', color: '#eee', border: '1px solid #444', borderRadius: 4, fontSize: 13, height: 36, cursor: 'pointer' }}>
         <option value="day">{ui.viewDay}</option>
         <option value="week">{ui.viewWeek}</option>
         <option value="month">{ui.viewMonth}</option>

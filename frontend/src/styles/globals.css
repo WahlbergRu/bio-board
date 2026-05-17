@@ -223,3 +223,20 @@ a:hover { color: var(--accent-hover); }
 }
 
 .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+/* === Header Buttons === */
+header .btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  line-height: 1.4;
+  height: 36px;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+header .btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+header .btn-primary:hover { background: var(--accent-hover); }
