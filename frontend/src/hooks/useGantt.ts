@@ -79,6 +79,8 @@ export function useGantt(
       })
       .on('end', function (event, d) {
         if (d.type === 'milestone' || !onTaskUpdate) return;
+        // Stop propagation so zoom doesn't receive this event
+        event.sourceEvent.stopPropagation();
         const daysDelta = Math.round(event.dx / (W / visibleDays));
         const startDate = d3.timeDay.offset(new Date(d.start_date), daysDelta);
         const endDate = d3.timeDay.offset(new Date(d.end_date), daysDelta);
@@ -106,6 +108,8 @@ export function useGantt(
       })
       .on('end', function (event, d) {
         if (d.type === 'milestone' || !onTaskUpdate) return;
+        // Stop propagation so zoom doesn't receive this event
+        event.sourceEvent.stopPropagation();
         const x1 = x(new Date(d.start_date))!;
         const newX2 = Math.max(x1 + 8, event.x);
         const endDate = x.invert(newX2);
@@ -190,7 +194,7 @@ export function useGantt(
       });
     });
 
-    // Zoom
+    // Zoom behavior
     const zoom = d3.zoom<SVGSVGElement, unknown>().scaleExtent([0.3, 5])
       .on('zoom', e => {
         g.attr('transform', `translate(${MARGIN.left + e.transform.x},${MARGIN.top})`);
