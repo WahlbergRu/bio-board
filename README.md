@@ -69,6 +69,31 @@ npm run dev   # http://localhost:8401
 - **Seed Data** — one-click demo project with 12 tasks
 - **MCP Server** — Model Context Protocol for tool-calling agents
 
+## Chat Commands
+
+AI chat supports two modes:
+1. **Fast commands** (Bag-of-Words parser) — for simple, precise commands
+2. **LLM fallback** — for complex natural language queries
+
+### Fast Commands
+
+| Command | Example | Description |
+|---------|---------|-------------|
+| `сдвинь [N]` | `Frontend сдвинь на 3 дня` | Shift task + dependents by N days |
+| `перенеси [дата]` | `Backend перенеси на 2026-05-20` | Move task to absolute date |
+| `скопируй` | `Design скопируй` | Duplicate task |
+| `удали` | `Testing удали` | Delete task |
+| `назначь [имя]` | `Backend назначь Иван` | Assign person to task |
+| `добавь` | `добавь задачу Тест` | Create new task |
+
+### LLM Fallback
+
+When fast parser doesn't recognize the command, it falls back to LLM for:
+- Complex multi-step operations
+- Ambiguous requests
+- Questions about the plan
+- Any command in natural language
+
 ## API Endpoints
 
 | Method | Path | Description |
