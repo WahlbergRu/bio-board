@@ -213,8 +213,13 @@ class CommandEngine:
     # ── EXECUTORS ──────────────────────────────────────────────────
 
     def _find_task_by_name(self, name: str) -> Optional[Task]:
+        # Exact match first (case-insensitive)
         for t in self.store.get_all_tasks():
-            if t.name.lower() == name.lower() or name.lower() in t.name.lower():
+            if t.name.lower() == name.lower():
+                return t
+        # Partial match only if no exact match
+        for t in self.store.get_all_tasks():
+            if name.lower() in t.name.lower():
                 return t
         return None
 

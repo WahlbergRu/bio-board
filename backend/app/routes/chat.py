@@ -37,6 +37,10 @@ async def chat(
     engine = CommandEngine(store)
     result_text = engine.parse_and_execute(body.message)
     
+    # DEBUG
+    import sys
+    print(f"DEBUG chat: msg={body.message!r}, result={result_text!r}, starts_error={result_text.startswith('❌') or result_text.startswith('❓')}", file=sys.stderr)
+    
     # Check if command engine didn't understand
     needs_llm = result_text.startswith("❌") or result_text.startswith("❓")
     
