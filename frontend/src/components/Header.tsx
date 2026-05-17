@@ -17,13 +17,14 @@ interface HeaderProps {
   autoSave: boolean;
   onLogin: () => void;
   onLogout: () => void;
+  onClearAll: () => void;
   isAuthenticated: boolean;
 }
 
 export default function Header({
   viewMode, zoomLevel, onViewChange, onZoomChange,
   onSeed, onCreateTask, onUpload, onExport, onExportIcal, onSave,
-  onToggleAutoSave, autoSave, onLogin, onLogout, isAuthenticated,
+  onToggleAutoSave, autoSave, onLogin, onLogout, onClearAll, isAuthenticated,
 }: HeaderProps) {
   return (
     <header style={{
@@ -53,6 +54,7 @@ export default function Header({
         <ExcelHandler onUpload={onUpload} onExport={onExport} onExportIcal={onExportIcal} />
         <span className="btn-sep" />
         <button onClick={onSeed} className="btn" title={ui.seedData}>{ui.seedData}</button>
+        <button onClick={onClearAll} className="btn btn-danger" title={ui.clearAll}>{ui.clearAll}</button>
         {isAuthenticated
           ? <button onClick={onLogout} className="btn">{ui.logout}</button>
           : <button onClick={onLogin} className="btn">{ui.login}</button>

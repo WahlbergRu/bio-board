@@ -12,6 +12,7 @@ import AuthModal from './components/AuthModal';
 import Notification from './components/Notification';
 import CreateTaskModal from './components/CreateTaskModal';
 import ContextMenu from './components/ContextMenu';
+import ConfirmModal from './components/ConfirmModal';
 import { Task } from './types';
 import { ui } from './i18n';
 
@@ -23,6 +24,7 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showConfirmClear, setShowConfirmClear] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [notification, setNotification] = useState('');
   const [unsaved, setUnsaved] = useState(false);
@@ -128,6 +130,14 @@ export default function App() {
 
   const handleLogin = () => setShowAuth(true);
   const handleLogout = () => { localStorage.removeItem('gantt_auth'); setIsAuthenticated(false); };
+  const handleClearAll = async () => {
+    await client.delete('/plan/reset');
+    setTasks([]);
+    localStorage.removeItem(SAVE_KEY);
+    setUnsaved(false);
+    notify(ui.clearAllDone);
+    setShowConfirmClear(false);
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#1a1a2e', color: '#eee' }}
@@ -135,7 +145,7 @@ export default function App() {
       <Header viewMode={viewMode} zoomLevel={zoomLevel} onViewChange={setViewMode} onZoomChange={setZoomLevel}
         onSeed={handleSeed} onUpload={handleUpload} onExport={handleExport} onExportIcal={handleExportIcal}
         onSave={handleSave} onToggleAutoSave={() => setAutoSave(!autoSave)} autoSave={autoSave}
-        onLogin={handleLogin} onLogout={handleLogout} isAuthenticated={isAuthenticated} 
+        onLogin={handleLogin} onLogout={handleLogout} onClearAll={() => setShowConfirmClear(true)} isAuthenticated={isAuthenticated} 
         onCreateTask={() => setShowCreateModal(true)} />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <div style={{ flex: 1, overflow: 'auto' }}>
@@ -156,6 +166,7 @@ export default function App() {
       <CreateTaskModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} onCreate={handleCreateTask} />
       <ContextMenu position={contextMenu ? { x: contextMenu.x, y: contextMenu.y } : null} 
                    task={contextMenu?.task || null} onClose={() => setContextMenu(null)} onAction={handleContextAction} />
+      <ConfirmModal isOpen={showConfirmClear} onConfirm={handleClearAll} onCancel={() => setShowConfirmClear(false)} />
       {notification && <Notification message={notification} />}
     </div>
   );

@@ -241,6 +241,13 @@ header .btn-primary {
 
 header .btn-primary:hover { background: var(--accent-hover); }
 
+header .btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+header .btn-danger:hover { background: #c0392b; }
+
 /* Header button separators */
 header .btn-sep {
   width: 1px;

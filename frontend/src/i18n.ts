@@ -79,4 +79,8 @@ export const ui = {
   noTasks: 'Нет задач. Загрузите Excel или добавьте через чат.',
   zoomIn: 'Увеличить',
   zoomOut: 'Уменьшить',
+  clearAll: ' Очистить всё',
+  clearAllConfirm: 'Удалить все задачи?',
+  clearAllConfirmDesc: 'Это действие нельзя отменить.',
+  clearAllDone: 'Все данные удалены',
 };

@@ -104,6 +104,7 @@ describe('Header', () => {
     autoSave: true,
     onLogin: () => {},
     onLogout: () => {},
+    onClearAll: () => {},
     isAuthenticated: true,
   };
 
