@@ -51,16 +51,13 @@ async def chat(
         plan_context = "\n".join(plan_lines) if plan_lines else "(empty plan)"
         
         async def llm_suggestions_stream():
-            # Stream raw LLM output
+            # Collect full LLM response first, then parse
             full_response = ""
             async for chunk in llm.suggest_commands(body.message, plan_context, error_context=result_text):
                 full_response += chunk
-                # Stream raw chunks for potential future use
-                yield f"data: {chunk}\n\n"
             
             # Try to parse as JSON suggestions
             try:
-                # Clean potential markdown
                 cleaned = full_response.strip()
                 if cleaned.startswith("```"):
                     cleaned = cleaned.split("```")[1]
@@ -70,16 +67,17 @@ async def chat(
                 
                 parsed = json.loads(cleaned)
                 if isinstance(parsed, dict) and "suggestions" in parsed:
-                    # Send structured suggestions
                     suggestions_payload = json.dumps({
                         "type": "suggestions",
                         "note": parsed.get("note", ""),
                         "commands": parsed["suggestions"],
                     })
                     yield f"data: {suggestions_payload}\n\n"
+                else:
+                    # Not a suggestions JSON, return as text
+                    yield f"data: {full_response}\n\n"
             except (json.JSONDecodeError, IndexError):
-                # Fallback: just text response
-                pass
+                yield f"data: {full_response}\n\n"
             
             yield "data: [DONE]\n\n"
         

@@ -52,29 +52,40 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
       
       for await (const chunk of sendChat(msg, newHistory.slice(-MAX_VISIBLE))) {
         fullText += chunk;
-        
-        // Try to parse JSON suggestions
-        try {
-          if (fullText.startsWith('{')) {
-            const data = JSON.parse(fullText);
-            if (data.type === 'suggestions') {
-              parsedSuggestions = {
-                note: data.note,
-                commands: data.commands,
-              };
-            }
+      }
+
+      // Parse after full response received
+      try {
+        if (fullText.startsWith('{')) {
+          const data = JSON.parse(fullText);
+          if (data.type === 'suggestions') {
+            parsedSuggestions = {
+              note: data.note,
+              commands: data.commands,
+            };
+            // Update message text with note
+            const newArr = updated.map((m, i) =>
+              i === updated.length - 1 ? { ...m, content: parsedSuggestions!.note || 'Выберите команду:' } : m
+            );
+            onMessagesChange(newArr);
+          } else {
+            // Regular JSON response, show as text
+            const newArr = updated.map((m, i) =>
+              i === updated.length - 1 ? { ...m, content: fullText } : m
+            );
+            onMessagesChange(newArr);
           }
-        } catch {
-          // Not valid JSON yet, continue streaming
+        } else {
+          // Plain text response
+          const newArr = updated.map((m, i) =>
+            i === updated.length - 1 ? { ...m, content: fullText } : m
+          );
+          onMessagesChange(newArr);
         }
-        
-        // Display text content only (not JSON)
-        const displayText = parsedSuggestions
-          ? parsedSuggestions.note || 'Выберите команду:'
-          : fullText;
-          
+      } catch {
+        // Not JSON, show as text
         const newArr = updated.map((m, i) =>
-          i === updated.length - 1 ? { ...m, content: displayText } : m
+          i === updated.length - 1 ? { ...m, content: fullText } : m
         );
         onMessagesChange(newArr);
       }

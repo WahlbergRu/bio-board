@@ -161,7 +161,7 @@ export default function App() {
             onComplete={() => fetchTasks().then(setTasks).catch(() => {})} />
         </div>
       </div>
-      <TaskModal task={selectedTask} isOpen={showModal} onClose={() => setShowModal(false)} onSave={handleTaskSave} />
+      <TaskModal task={selectedTask} isOpen={showModal} onClose={() => setShowModal(false)} onSave={handleTaskSave} allTasks={tasks} />
       <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} onAuth={() => { setIsAuthenticated(true); setShowAuth(false); localStorage.setItem('gantt_auth', '1'); }} />
       <CreateTaskModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} onCreate={handleCreateTask} />
       <ContextMenu position={contextMenu ? { x: contextMenu.x, y: contextMenu.y } : null} 

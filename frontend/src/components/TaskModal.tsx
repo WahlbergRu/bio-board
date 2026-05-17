@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Task, TaskFormData } from '../types';
 import { ui } from '../i18n';
 
@@ -7,27 +7,56 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onSave: (task: Task) => void;
+  allTasks?: Task[];
 }
+
+const EMPTY_TASKS: Task[] = [];
 
 const typeLabels: Record<string, string> = { task: ui.taskTypeTask, milestone: ui.taskTypeMilestone, project: ui.taskTypeProject };
 
-export default function TaskModal({ task, isOpen, onClose, onSave }: Props) {
+export default function TaskModal({ task, isOpen, onClose, onSave, allTasks = EMPTY_TASKS }: Props) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<TaskFormData>({ name: '', description: '', start_date: '', end_date: '', progress: 0, type: 'task', assignee: '', dependencies: '' });
+  const prevTaskIdRef = useRef<string | null>(null);
+
+  const taskInfoMap = useMemo(() => {
+    const m = new Map<string, { id: string; name: string }>();
+    allTasks.forEach(t => m.set(t.id, { id: t.id, name: t.name }));
+    return m;
+  }, [allTasks]);
 
   useEffect(() => {
-    if (task) {
-      setForm({ ...task, dependencies: task.dependencies.join(', ') });
+    if (task && task.id !== prevTaskIdRef.current) {
+      prevTaskIdRef.current = task.id;
+      const depLabels = task.dependencies.map(id => {
+        const info = taskInfoMap.get(id);
+        return info ? `${info.id} — ${info.name}` : id;
+      });
+      setForm({ ...task, dependencies: depLabels.join(', ') });
       setEditing(false);
     }
-  }, [task]);
+  }, [task, taskInfoMap]);
 
   if (!isOpen || !task) return null;
 
   const handleSave = () => {
+    const depIds = form.dependencies.split(',').map(s => s.trim()).filter(Boolean).map(raw => {
+      // Try "ID — Name" format: extract ID
+      const idMatch = raw.match(/^(\d+)\s*[—-]/);
+      if (idMatch) {
+        return idMatch[1];
+      }
+      // Try plain ID
+      if (/^\d+$/.test(raw)) {
+        return raw;
+      }
+      // Try name lookup
+      const found = allTasks.find(t => t.name.toLowerCase() === raw.toLowerCase());
+      return found ? found.id : raw;
+    });
     const updated: Task = {
       ...task, ...form,
-      dependencies: form.dependencies.split(',').map(s => s.trim()).filter(Boolean),
+      dependencies: depIds,
     };
     onSave(updated);
     setEditing(false);
@@ -54,7 +83,7 @@ export default function TaskModal({ task, isOpen, onClose, onSave }: Props) {
   );
 
   return (
-    <div style={overlay} onClick={onClose}>
+    <div style={overlay} onClick={editing ? undefined : onClose}>
       <div style={card} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <h2 style={{ margin: 0, fontSize: 16, color: '#eee' }}>{ui.taskDetails}</h2>
