@@ -105,6 +105,7 @@ describe('Header', () => {
     onLogin: () => {},
     onLogout: () => {},
     onClearAll: () => {},
+    onSettings: () => {},
     isAuthenticated: true,
   };
 

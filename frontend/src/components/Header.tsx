@@ -18,13 +18,14 @@ interface HeaderProps {
   onLogin: () => void;
   onLogout: () => void;
   onClearAll: () => void;
+  onSettings: () => void;
   isAuthenticated: boolean;
 }
 
 export default function Header({
   viewMode, zoomLevel, onViewChange, onZoomChange,
   onSeed, onCreateTask, onUpload, onExport, onExportIcal, onSave,
-  onToggleAutoSave, autoSave, onLogin, onLogout, onClearAll, isAuthenticated,
+  onToggleAutoSave, autoSave, onLogin, onLogout, onClearAll, onSettings, isAuthenticated,
 }: HeaderProps) {
   return (
     <header style={{
@@ -55,6 +56,7 @@ export default function Header({
         <span className="btn-sep" />
         <button onClick={onSeed} className="btn" title={ui.seedData}>{ui.seedData}</button>
         <button onClick={onClearAll} className="btn btn-danger" title={ui.clearAll}>{ui.clearAll}</button>
+        <button onClick={onSettings} className="btn" title={ui.settings}>{ui.settings}</button>
         {isAuthenticated
           ? <button onClick={onLogout} className="btn">{ui.logout}</button>
           : <button onClick={onLogin} className="btn">{ui.login}</button>

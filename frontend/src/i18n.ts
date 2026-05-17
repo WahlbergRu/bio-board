@@ -83,4 +83,20 @@ export const ui = {
   clearAllConfirm: 'Удалить все задачи?',
   clearAllConfirmDesc: 'Это действие нельзя отменить.',
   clearAllDone: 'Все данные удалены',
+
+  // Settings
+  settings: '⚙ Настройки',
+  settingsTitle: 'Настройки LLM',
+  settingsBaseUrl: 'URL API',
+  settingsBaseUrlHint: 'Базовый URL совместимого с OpenAI API',
+  settingsApiKey: 'API-ключ',
+  settingsApiKeyHint: 'Ключ сохраняется на сервере, в ответе не возвращается',
+  settingsModel: 'Модель',
+  settingsModelHint: 'Название модели для запросов к LLM',
+  settingsShowKey: 'Показать ключ',
+  settingsHideKey: 'Скрыть ключ',
+  settingsSaveSuccess: 'Настройки LLM сохранены',
+  settingsSaveError: 'Ошибка сохранения настроек',
+  settingsLoadError: 'Ошибка загрузки настроек',
+  settingsSaving: 'Сохранение...',
 };

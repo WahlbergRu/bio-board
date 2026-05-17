@@ -36,7 +36,7 @@ export function useGantt(
     // Scales
     const [minD, maxD] = d3.extent(tasks.flatMap(t => [+new Date(t.start_date), +new Date(t.end_date)])) as [number, number];
     const domainStart = d3.timeDay.offset(new Date(minD || Date.now()), -2);
-    const domainEnd = d3.timeDay.offset(new Date(maxD || Date.now()), Math.max(visibleDays / 10, 5));
+    const domainEnd = d3.timeDay.offset(new Date(maxD || Date.now()), visibleDays);
     const x = d3.scaleTime().domain([domainStart, domainEnd]).range([0, W]);
     const y = d3.scaleBand<Task>().domain(tasks).range([0, H]).padding(0.25);
 
@@ -47,7 +47,7 @@ export function useGantt(
       .style('pointer-events', 'all');  // only responds when no bar underneath
 
     // Grid lines
-    const tickCount = Math.min(visibleDays, 20);
+    const tickCount = visibleDays <= 14 ? visibleDays : visibleDays <= 60 ? 20 : 30;
     g.append('g').selectAll('line').data(x.ticks(tickCount)).join('line')
       .attr('x1', d => x(d)).attr('x2', d => x(d)).attr('y1', 0).attr('y2', H)
       .attr('stroke', '#333').attr('stroke-dasharray', '3,3');

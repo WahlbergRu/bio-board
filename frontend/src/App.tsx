@@ -13,6 +13,7 @@ import Notification from './components/Notification';
 import CreateTaskModal from './components/CreateTaskModal';
 import ContextMenu from './components/ContextMenu';
 import ConfirmModal from './components/ConfirmModal';
+import SettingsModal from './components/SettingsModal';
 import { Task } from './types';
 import { ui } from './i18n';
 
@@ -25,6 +26,7 @@ export default function App() {
   const [showModal, setShowModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showConfirmClear, setShowConfirmClear] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [notification, setNotification] = useState('');
   const [unsaved, setUnsaved] = useState(false);
@@ -145,7 +147,8 @@ export default function App() {
       <Header viewMode={viewMode} zoomLevel={zoomLevel} onViewChange={setViewMode} onZoomChange={setZoomLevel}
         onSeed={handleSeed} onUpload={handleUpload} onExport={handleExport} onExportIcal={handleExportIcal}
         onSave={handleSave} onToggleAutoSave={() => setAutoSave(!autoSave)} autoSave={autoSave}
-        onLogin={handleLogin} onLogout={handleLogout} onClearAll={() => setShowConfirmClear(true)} isAuthenticated={isAuthenticated} 
+        onLogin={handleLogin} onLogout={handleLogout} onClearAll={() => setShowConfirmClear(true)}
+        onSettings={() => setShowSettings(true)} isAuthenticated={isAuthenticated} 
         onCreateTask={() => setShowCreateModal(true)} />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <div style={{ flex: 1, overflow: 'auto' }}>
@@ -167,6 +170,7 @@ export default function App() {
       <ContextMenu position={contextMenu ? { x: contextMenu.x, y: contextMenu.y } : null} 
                    task={contextMenu?.task || null} onClose={() => setContextMenu(null)} onAction={handleContextAction} />
       <ConfirmModal isOpen={showConfirmClear} onConfirm={handleClearAll} onCancel={() => setShowConfirmClear(false)} />
+      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} onSave={() => {}} />
       {notification && <Notification message={notification} />}
     </div>
   );

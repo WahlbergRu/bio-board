@@ -216,6 +216,24 @@ class LLMAgent:
             if tools_called:
                 yield "\x00\x00TOOLS_CALLED\x00\x00"
 
+    def reconfigure(
+        self,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        model: str | None = None,
+    ) -> None:
+        """Update LLM config at runtime and recreate the client."""
+        if api_key is not None:
+            self.api_key = api_key
+        if base_url is not None:
+            self.base_url = base_url
+        if model is not None:
+            self.model = model
+        self.client = AsyncOpenAI(
+            api_key=self.api_key,
+            base_url=self.base_url,
+        )
+
     @staticmethod
     def _build_system_prompt(plan_context: str) -> str:
         return (

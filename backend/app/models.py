@@ -99,3 +99,15 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class LLMSettingsUpdate(BaseModel):
+    base_url: str | None = None
+    api_key: str | None = None
+    model: str | None = None
+
+
+class LLMSettingsResponse(BaseModel):
+    base_url: str = ""
+    model: str = ""
+    api_key_set: bool = False

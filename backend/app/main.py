@@ -16,7 +16,7 @@ from app.llm_agent import LLMAgent
 from app.mcp_server import get_mcp_app
 from app.models import SeedTask, TokenResponse, LoginRequest
 from app.store import PlanState
-from app.routes import tasks, chat, excel, plan
+from app.routes import tasks, chat, excel, plan, settings
 
 DATA_DIR = Path("plan.json").parent
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-change-in-production")
@@ -126,6 +126,7 @@ app.include_router(tasks.router)
 app.include_router(chat.router)
 app.include_router(excel.router)
 app.include_router(plan.router)
+app.include_router(settings.router)
 
 mcp = get_mcp_app(store)
 app.mount("/mcp", mcp.streamable_http_app())
