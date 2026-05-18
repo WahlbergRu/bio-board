@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "name": "bio-board-root",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "npm ci --prefix frontend && npm run build --prefix frontend && mkdir -p dist && cp -r frontend/dist/* dist/",
+    "dev": "npm run dev --prefix frontend"
+  }
+}
