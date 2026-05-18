@@ -57,6 +57,7 @@ a:hover { color: var(--accent-hover); }
   flex: 1;
   overflow: auto;
   min-height: 0;
+  position: relative;
 }
 
 .app-sidebar {
@@ -67,10 +68,14 @@ a:hover { color: var(--accent-hover); }
 }
 
 .empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: #666;
-  text-align: center;
-  padding: 60px;
   font-size: 14px;
+  pointer-events: none;
 }
 
 .unsaved-warning {

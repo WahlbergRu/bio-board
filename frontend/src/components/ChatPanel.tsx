@@ -126,8 +126,8 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated 
     const updated = [...newHistory, assistantMsg];
     onMessagesChange(updated);
 
+    let fullText = '';
     try {
-      let fullText = '';
       for await (const chunk of sendChat(msg, newHistory.slice(-MAX_VISIBLE))) {
         fullText += chunk;
       }
@@ -165,7 +165,8 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated 
         const createdFromResponse = extractCreatedFromResponse(fullText);
         if (createdFromResponse) setLastAddedTaskName(createdFromResponse);
       }
-    } catch {
+    } catch (err) {
+      console.error('Chat error:', err, 'fullText:', fullText);
       setSuggestions(null);
       const errArr = updated.map((m, i) => i === updated.length - 1 ? { ...m, content: '⚠️ ' + ui.llmError } : m);
       onMessagesChange(errArr);
