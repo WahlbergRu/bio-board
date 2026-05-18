@@ -4,17 +4,61 @@ import { COMMANDS, CommandDef } from '../data/commands';
 interface Props {
   visible: boolean;
   filterText: string;
-  onSelect: (template: string) => void;
+  contextTaskName: string | null;
+  onSelect: (filledTemplate: string, cursorPos: number) => void;
   onClose: () => void;
 }
 
 const HINT = '↑↓ навигация · Tab/Enter выбрать · Esc закрыть';
 
-export default function CommandOverlay({ visible, filterText, onSelect, onClose }: Props) {
+/**
+ * Fill template placeholders with context values.
+ * Returns { text, cursorPos } where cursorPos is where to place caret.
+ */
+function fillTemplate(template: string, contextTaskName: string | null): { text: string; cursorPos: number } {
+  let text = template;
+  let cursorPos = 0;
+
+  // {name} → context task name or removed
+  const nameIdx = text.indexOf('{name}');
+  if (nameIdx >= 0) {
+    if (contextTaskName) {
+      text = text.replace('{name}', contextTaskName);
+      cursorPos = nameIdx + contextTaskName.length;
+    } else {
+      text = text.replace('{name}', '');
+      cursorPos = nameIdx;
+    }
+  }
+
+  // {days} → "3" default
+  const daysIdx = text.indexOf('{days}');
+  if (daysIdx >= 0) {
+    text = text.replace('{days}', '3');
+    if (cursorPos === 0 || cursorPos > daysIdx) cursorPos = daysIdx;
+    // Select "3" for easy editing
+    cursorPos = daysIdx;
+  }
+
+  // {person}, {date}, {dep} → removed, cursor at their position
+  for (const ph of ['{person}', '{date}', '{dep}']) {
+    const idx = text.indexOf(ph);
+    if (idx >= 0) {
+      text = text.replace(ph, '');
+      if (cursorPos === 0 || cursorPos > idx) cursorPos = idx;
+    }
+  }
+
+  // If no cursor was set, put at end
+  if (cursorPos === 0) cursorPos = text.length;
+
+  return { text, cursorPos };
+}
+
+export default function CommandOverlay({ visible, filterText, contextTaskName, onSelect, onClose }: Props) {
   const [highlighted, setHighlighted] = useState(0);
   const overlayRef = useRef<HTMLDivElement>(null);
 
-  // Filter commands by keyword match or label match
   const filtered = filterText.trim()
     ? COMMANDS.filter((c) =>
         c.label.toLowerCase().includes(filterText.toLowerCase()) ||
@@ -22,12 +66,8 @@ export default function CommandOverlay({ visible, filterText, onSelect, onClose 
       )
     : COMMANDS;
 
-  // Reset highlight when filter or visibility changes
-  useEffect(() => {
-    setHighlighted(0);
-  }, [filterText, visible]);
+  useEffect(() => { setHighlighted(0); }, [filterText, visible]);
 
-  // Close on outside click
   useEffect(() => {
     if (!visible) return;
     const handler = (e: MouseEvent) => {
@@ -35,41 +75,34 @@ export default function CommandOverlay({ visible, filterText, onSelect, onClose 
         onClose();
       }
     };
-    // Delay to avoid immediate close from the click that opened it
     const timer = setTimeout(() => document.addEventListener('mousedown', handler), 100);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('mousedown', handler);
-    };
+    return () => { clearTimeout(timer); document.removeEventListener('mousedown', handler); };
   }, [visible, onClose]);
 
-  // Keyboard navigation
   useEffect(() => {
     if (!visible) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setHighlighted((prev) => Math.min(prev + 1, filtered.length - 1));
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setHighlighted((prev) => Math.max(prev - 1, 0));
-      } else if (e.key === 'Enter' || e.key === 'Tab') {
+      if (e.key === 'Escape') { e.preventDefault(); onClose(); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); setHighlighted((p) => Math.min(p + 1, filtered.length - 1)); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlighted((p) => Math.max(p - 1, 0)); }
+      else if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
         if (filtered[highlighted]) {
-          onSelect(filtered[highlighted].template);
+          const { text, cursorPos } = fillTemplate(filtered[highlighted].template, contextTaskName);
+          onSelect(text, cursorPos);
         }
       }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [visible, filtered, highlighted, onSelect, onClose]);
+  }, [visible, filtered, highlighted, contextTaskName, onSelect, onClose]);
 
   if (!visible || filtered.length === 0) return null;
 
-  const handleSelect = (cmd: CommandDef) => () => onSelect(cmd.template);
+  const handleClick = (cmd: CommandDef) => () => {
+    const { text, cursorPos } = fillTemplate(cmd.template, contextTaskName);
+    onSelect(text, cursorPos);
+  };
 
   return (
     <div
@@ -77,8 +110,7 @@ export default function CommandOverlay({ visible, filterText, onSelect, onClose 
       style={{
         position: 'absolute',
         bottom: '100%',
-        left: 0,
-        right: 0,
+        left: 0, right: 0,
         marginBottom: 6,
         background: '#1a1a3a',
         border: '1px solid #444',
@@ -93,30 +125,20 @@ export default function CommandOverlay({ visible, filterText, onSelect, onClose 
       {filtered.map((cmd, idx) => (
         <button
           key={cmd.id}
-          onClick={handleSelect(cmd)}
+          onClick={handleClick(cmd)}
           onMouseEnter={() => setHighlighted(idx)}
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'flex-start',
-            width: '100%',
-            padding: '10px 14px',
+            display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+            width: '100%', padding: '10px 14px',
             background: idx === highlighted ? '#2a2a5e' : 'transparent',
             border: 'none',
             borderBottom: idx < filtered.length - 1 ? '1px solid #2a2a4e' : 'none',
-            color: '#eee',
-            fontSize: 14,
-            cursor: 'pointer',
-            textAlign: 'left',
-            minHeight: 44, // touch-friendly
-            transition: 'background 0.15s',
+            color: '#eee', fontSize: 14, cursor: 'pointer', textAlign: 'left',
+            minHeight: 44, transition: 'background 0.15s',
           }}
         >
           <span style={{ fontWeight: 600, fontSize: 13 }}>{cmd.label}</span>
           <span style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{cmd.description}</span>
-          <span style={{ fontSize: 11, color: '#4A90D9', marginTop: 2, fontFamily: 'monospace' }}>
-            {cmd.template}
-          </span>
         </button>
       ))}
       <div style={{ padding: '6px 14px', fontSize: 10, color: '#555', textAlign: 'center' }}>

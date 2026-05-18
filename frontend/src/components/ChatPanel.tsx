@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { ChatMessage } from '../types';
 import { sendChat } from '../api/chat';
 import { ui } from '../i18n';
+import { useStore } from '../store';
 import CommandOverlay from './CommandOverlay';
 
 interface Props {
@@ -23,7 +24,16 @@ interface SuggestionsState {
 
 const MAX_VISIBLE = 100;
 
+// Extract task name from "добавь задачу X" or "создай X"
+function extractCreatedTaskName(msg: string): string | null {
+  const m = msg.match(/(?:добавь|создай|create|new)\s+(?:задач[уа]?\s+)?(\S+)/i);
+  return m ? m[1] : null;
+}
+
 export default function ChatPanel({ messages, onMessagesChange, isAuthenticated, onComplete }: Props) {
+  const lastAddedTaskName = useStore(s => s.lastAddedTaskName);
+  const setLastAddedTaskName = useStore(s => s.setLastAddedTaskName);
+
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<SuggestionsState | null>(null);
@@ -47,17 +57,23 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
     }
   }, []);
 
-  const handleCommandSelect = useCallback((template: string) => {
-    setInput(template);
+  const handleCommandSelect = useCallback((text: string, cursorPos: number) => {
+    setInput(text);
     setShowCommands(false);
     setCommandFilter('');
     inputRef.current?.focus();
+    // Position cursor at the placeholder location
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (el) {
+        el.setSelectionRange(cursorPos, cursorPos);
+      }
+    });
   }, []);
 
   const handleCommandClose = useCallback(() => {
     setShowCommands(false);
     setCommandFilter('');
-    // Keep input as-is, don't remove "/"
   }, []);
 
   const handleCommandsButtonClick = useCallback(() => {
@@ -74,6 +90,13 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
   const handleSend = useCallback(async (overrideMsg?: string) => {
     const msg = overrideMsg ?? input.trim();
     if (!msg || loading || !isAuthenticated) return;
+
+    // Track last added task name
+    const createdName = extractCreatedTaskName(msg);
+    if (createdName) {
+      setLastAddedTaskName(createdName);
+    }
+
     setShowCommands(false);
     setCommandFilter('');
     const userMsg: ChatMessage = { role: 'user', content: msg, timestamp: new Date().toISOString() };
@@ -138,7 +161,7 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
       setLoading(false);
       onComplete?.();
     }
-  }, [input, loading, isAuthenticated, messages, onMessagesChange, onComplete]);
+  }, [input, loading, isAuthenticated, messages, onMessagesChange, onComplete, setLastAddedTaskName]);
 
   const handleSuggestionClick = useCallback((command: string) => () => {
     setSuggestions(null);
@@ -191,7 +214,6 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
         <div ref={endRef} />
       </div>
       <div style={{ padding: '8px 12px', borderTop: '1px solid #333', display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {/* Commands button */}
         <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
           <button
             onClick={handleCommandsButtonClick}
@@ -205,11 +227,11 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
             {ui.commandsButton}
           </button>
         </div>
-        {/* Input bar with overlay */}
         <div style={{ position: 'relative', display: 'flex', gap: 6, alignItems: 'center' }}>
           <CommandOverlay
             visible={showCommands}
             filterText={commandFilter}
+            contextTaskName={lastAddedTaskName}
             onSelect={handleCommandSelect}
             onClose={handleCommandClose}
           />

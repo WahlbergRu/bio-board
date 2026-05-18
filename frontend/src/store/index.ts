@@ -14,6 +14,7 @@ interface State {
   viewMode: 'gantt' | 'kanban';
   autoSave: boolean;
   llmSettings: LLMSettings;
+  lastAddedTaskName: string | null;
   setTasks: (t: Task[]) => void;
   addTask: (t: Task) => void;
   updateTask: (id: string, data: Partial<Task>) => void;
@@ -24,6 +25,7 @@ interface State {
   setViewMode: (m: 'gantt' | 'kanban') => void;
   setAutoSave: (v: boolean) => void;
   setLLMSettings: (s: LLMSettings) => void;
+  setLastAddedTaskName: (name: string | null) => void;
 }
 
 export const useStore = create<State>(set => ({
@@ -33,6 +35,7 @@ export const useStore = create<State>(set => ({
   viewMode: 'gantt',
   autoSave: true,
   llmSettings: { baseUrl: '', apiKey: '', model: '' },
+  lastAddedTaskName: null,
   setTasks: t => set({ tasks: t }),
   addTask: t => set(s => ({ tasks: [...s.tasks, t] })),
   updateTask: (id, data) => set(s => ({ tasks: s.tasks.map(t => t.id === id ? { ...t, ...data } : t) })),
@@ -43,4 +46,5 @@ export const useStore = create<State>(set => ({
   setViewMode: m => set({ viewMode: m }),
   setAutoSave: v => set({ autoSave: v }),
   setLLMSettings: s => set({ llmSettings: s }),
+  setLastAddedTaskName: name => set({ lastAddedTaskName: name }),
 }));
