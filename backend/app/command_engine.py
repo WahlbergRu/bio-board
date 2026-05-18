@@ -32,7 +32,7 @@ _LINK_KEYWORDS = frozenset({
 _SHIFT_KEYWORDS = frozenset({"сдвинь", "shift", "move", "перенеси", "двигай", "сдвинуть", "сдвигай", "перенести"})
 _COPY_KEYWORDS = frozenset({"скопируй", "copy", "duplicate", "клон", "дублируй", "клонируй", "скопировать", "дублировать"})
 _DELETE_KEYWORDS = frozenset({"удали", "delete", "remove", "убери", "удалить"})
-_ASSIGN_KEYWORDS = frozenset({"назначь", "assign", "ответственный", "исполнитель", "назначить"})
+_ASSIGN_KEYWORDS = frozenset({"назначь", "assign", "ответственный", "исполнитель", "исполнителем", "назначить"})
 _CREATE_KEYWORDS = frozenset({"добавь", "создай", "new", "create", "создать", "добавить"})
 
 

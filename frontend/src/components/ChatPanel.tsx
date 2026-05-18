@@ -130,13 +130,16 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated 
 
     let fullText = '';
     try {
+      console.log('[Chat] Sending to API:', msg);
       for await (const chunk of sendChat(msg, newHistory.slice(-MAX_VISIBLE))) {
         fullText += chunk;
       }
+      console.log('[Chat] Full response:', fullText);
 
       // Parse SSE
       const dataParts = parseSSEStream(fullText);
       const rawText = dataParts.join('') || fullText.replace(/^data: /gm, '').replace(/\[DONE\]/g, '').trim();
+      console.log('[Chat] Parsed SSE, rawText:', rawText);
 
       // Try suggestions JSON
       const parsedSuggestions = tryParseSuggestionsJSON(rawText);
@@ -173,13 +176,20 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated 
       const errArr = updated.map((m, i) => i === updated.length - 1 ? { ...m, content: '⚠️ ' + ui.llmError } : m);
       onMessagesChange(errArr);
     } finally {
+      console.log('[Chat] handleSend finally, calling onComplete');
       setLoading(false);
       onComplete?.();
     }
   }, [input, loading, isAuthenticated, messages, onMessagesChange, onComplete, setLastAddedTaskName, suggestions]);
 
   const handleSuggestionClick = useCallback((command: string) => () => {
-    console.log('[Chat] Suggestion clicked:', command);
+    console.log('[Chat] Suggestion clicked:', command, 'type:', typeof command);
+    console.log('[Chat] Current input:', input);
+    console.log('[Chat] Current state:', { isAuthenticated, loading });
+    if (!command) {
+      console.error('[Chat] Command is empty!');
+      return;
+    }
     setSuggestions(prev => {
       if (!prev) return null;
       const next = new Set(prev.executed);
@@ -187,7 +197,7 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated 
       return { ...prev, executed: next };
     });
     handleSend(command);
-  }, [handleSend]);
+  }, [handleSend, isAuthenticated, loading, input]);
 
   const visible = messages.slice(-MAX_VISIBLE);
   const offset = Math.max(0, messages.length - MAX_VISIBLE);
@@ -217,7 +227,10 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated 
             error={suggestions.error}
             commands={suggestions.commands}
             executed={suggestions.executed}
-            onExecute={handleSuggestionClick}
+            onExecute={(cmd) => {
+              console.log('[Chat] SuggestionsPanel onExecute called with:', cmd);
+              handleSuggestionClick(cmd)();
+            }}
           />
         )}
         {loading && (

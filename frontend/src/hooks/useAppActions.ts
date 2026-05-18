@@ -15,11 +15,15 @@ export function useAppActions() {
   }, []);
 
   const refreshTasks = useCallback(async () => {
+    console.log('[AppActions] refreshTasks called');
     try {
       const newTasks = await fetchTasks();
-      if (newTasks?.length) setTasks(newTasks);
-    } catch {
-      // Silently fail — tasks already in local store
+      console.log('[AppActions] fetchTasks returned:', newTasks);
+      // Always update, even if empty — this ensures sync with backend
+      setTasks(newTasks || []);
+      console.log('[AppActions] setTasks called with', (newTasks || []).length, 'tasks');
+    } catch (err) {
+      console.error('[AppActions] refreshTasks failed:', err);
     }
   }, [setTasks]);
 
