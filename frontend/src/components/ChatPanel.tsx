@@ -30,6 +30,18 @@ function extractCreatedTaskName(msg: string): string | null {
   return m ? m[1] : null;
 }
 
+// Extract created task name from server response: "Создал задачу 'X'"
+function extractCreatedFromResponse(response: string): string | null {
+  const m = response.match(/Создал задачу '([^']+)'/);
+  return m ? m[1] : null;
+}
+
+// Extract copied task name from server response: "Скопировал 'X' -> 'Y'"
+function extractCopiedTaskName(response: string): string | null {
+  const m = response.match(/Скопировал\s+'[^']+'\s*->\s*'([^']+)'/);
+  return m ? m[1] : null;
+}
+
 export default function ChatPanel({ messages, onMessagesChange, isAuthenticated, onComplete }: Props) {
   const lastAddedTaskName = useStore(s => s.lastAddedTaskName);
   const setLastAddedTaskName = useStore(s => s.setLastAddedTaskName);
@@ -153,6 +165,17 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
 
       if (parsedSuggestions) {
         setSuggestions(parsedSuggestions);
+      }
+
+      // Parse server response for copy/create to update lastAddedTaskName
+      const copiedName = extractCopiedTaskName(fullText);
+      if (copiedName) {
+        setLastAddedTaskName(copiedName);
+      } else {
+        const createdFromResponse = extractCreatedFromResponse(fullText);
+        if (createdFromResponse) {
+          setLastAddedTaskName(createdFromResponse);
+        }
       }
     } catch {
       const errArr = updated.map((m, i) => i === updated.length - 1 ? { ...m, content: '⚠️ ' + ui.llmError } : m);
