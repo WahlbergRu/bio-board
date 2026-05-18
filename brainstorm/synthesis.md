@@ -2,20 +2,24 @@
 
 ## 1. Cross-Task Dependencies
 
-This is the first brainstorm task in the project. No prior tasks exist to create dependencies. Future tasks will depend on decisions made here:
-
 - Gantt library choice (gantt-task-react) affects all frontend implementation
 - MCP tool specification drives backend architecture
 - LLM prompt design affects chat UX quality
 - In-memory state decision affects persistence strategy for all future features
+- **Chat command suggestions (2026-05-18)** depends on existing CommandEngine — pure frontend addition, no backend coupling
+- Future test coverage tasks depend on command engine test cases
 
 ## 2. Recurring Patterns
 
-Not applicable (first task).
+- **Frontend-first improvements**: Multiple features (chat suggestions, Gantt UI) are frontend-only additions
+- **Bag-of-Words parsing**: Simple, dependency-free, but limited discoverability — addressed by "/" overlay
+- **Inline styles**: No CSS framework, all components use inline styles — consistent but harder to maintain at scale
+- **Dark theme**: All components use dark color scheme (#2a2a4e, #1a1a3a)
+- **Russian language**: All UI strings in Russian, i18n system in place
 
 ## 3. Contradictions
 
-Not applicable (first task).
+- LLM suggestions (post-failure) vs command overlay (pre-send): two suggestion systems. Not contradictory — complementary. Overlay is proactive, LLM is reactive.
 
 ## 4. Cumulative Risk Matrix
 
@@ -26,6 +30,8 @@ Not applicable (first task).
 | Circular dependencies | Critical | Store, MCP | DFS detection | Identified |
 | Excel malicious files | Medium | Backend | defusedxml | Identified |
 | Data loss (in-memory) | Medium | Backend | Auto-save JSON | Identified |
+| Command list drift (frontend/backend) | Low | Chat suggestions | Static small list, documented | Identified |
+| False "/" triggers in normal text | Medium | Chat suggestions | Escape to close, non-intrusive overlay | Identified |
 
 ## 5. Decision Evolution
 

@@ -89,3 +89,23 @@ Source: 2026-05-15-ai-gantt-planner
 A: No. openpyxl reads data only — it doesn't execute macros or embedded scripts. `defusedxml` is installed to guard against XML billion-laugs attacks.
 
 Source: 2026-05-15-ai-gantt-planner
+
+## Chat Commands
+
+### Q: Как вызвать список быстрых команд в чате?
+
+A: Введите символ `/` в поле ввода чата. Появится выпадающий список с 7 доступными командами: добавить задачу, сдвинуть, скопировать, удалить, назначить, перенести на дату, связать задачи.
+
+Source: 2026-05-18-chat-command-suggestions
+
+### Q: Какие команды доступны через "/"?
+
+A: 7 команд: `добавь задачу {name}`, `{name} сдвинь на {N}`, `{name} скопируй`, `{name} удали`, `{name} назначь {person}`, `{name} перенеси на {YYYY-MM-DD}`, `{A} связана с {B}`.
+
+Source: 2026-05-18-chat-command-suggestions
+
+### Q: Можно ли использовать команды без "/"?
+
+A: Да. Система поддерживает Bag-of-Words парсинг — достаточно использовать ключевые слова (сдвинь, удали, добавь и т.д.) в любом порядке. "/" — это подсказка/подсказка для тех, кто не знает синтаксис.
+
+Source: 2026-05-18-chat-command-suggestions

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { ChatMessage } from '../types';
 import { sendChat } from '../api/chat';
 import { ui } from '../i18n';
+import CommandOverlay from './CommandOverlay';
 
 interface Props {
   messages: ChatMessage[];
@@ -26,13 +27,55 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<SuggestionsState | null>(null);
+  const [showCommands, setShowCommands] = useState(false);
+  const [commandFilter, setCommandFilter] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading, suggestions]);
+
+  // Detect "/" trigger
+  const handleInputChange = useCallback((value: string) => {
+    setInput(value);
+    const slashIdx = value.indexOf('/');
+    if (slashIdx === 0) {
+      setCommandFilter(value.slice(1));
+      setShowCommands(true);
+    } else {
+      setShowCommands(false);
+      setCommandFilter('');
+    }
+  }, []);
+
+  const handleCommandSelect = useCallback((template: string) => {
+    setInput(template);
+    setShowCommands(false);
+    setCommandFilter('');
+    inputRef.current?.focus();
+  }, []);
+
+  const handleCommandClose = useCallback(() => {
+    setShowCommands(false);
+    setCommandFilter('');
+    // Keep input as-is, don't remove "/"
+  }, []);
+
+  const handleCommandsButtonClick = useCallback(() => {
+    if (showCommands) {
+      handleCommandClose();
+    } else {
+      setInput('/');
+      setCommandFilter('');
+      setShowCommands(true);
+      inputRef.current?.focus();
+    }
+  }, [showCommands, handleCommandClose]);
 
   const handleSend = useCallback(async (overrideMsg?: string) => {
     const msg = overrideMsg ?? input.trim();
     if (!msg || loading || !isAuthenticated) return;
+    setShowCommands(false);
+    setCommandFilter('');
     const userMsg: ChatMessage = { role: 'user', content: msg, timestamp: new Date().toISOString() };
     const newHistory = overrideMsg ? messages : [...messages, userMsg];
     if (!overrideMsg) {
@@ -49,12 +92,11 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
     try {
       let fullText = '';
       let parsedSuggestions: SuggestionsState | null = null;
-      
+
       for await (const chunk of sendChat(msg, newHistory.slice(-MAX_VISIBLE))) {
         fullText += chunk;
       }
 
-      // Parse after full response received
       try {
         if (fullText.startsWith('{')) {
           const data = JSON.parse(fullText);
@@ -63,27 +105,23 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
               note: data.note,
               commands: data.commands,
             };
-            // Update message text with note
             const newArr = updated.map((m, i) =>
               i === updated.length - 1 ? { ...m, content: parsedSuggestions!.note || 'Выберите команду:' } : m
             );
             onMessagesChange(newArr);
           } else {
-            // Regular JSON response, show as text
             const newArr = updated.map((m, i) =>
               i === updated.length - 1 ? { ...m, content: fullText } : m
             );
             onMessagesChange(newArr);
           }
         } else {
-          // Plain text response
           const newArr = updated.map((m, i) =>
             i === updated.length - 1 ? { ...m, content: fullText } : m
           );
           onMessagesChange(newArr);
         }
       } catch {
-        // Not JSON, show as text
         const newArr = updated.map((m, i) =>
           i === updated.length - 1 ? { ...m, content: fullText } : m
         );
@@ -152,15 +190,42 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
         {loading && <div style={{ color: '#666', fontSize: 12, padding: '4px 12px' }}>▋</div>}
         <div ref={endRef} />
       </div>
-      <div style={{ padding: '8px 12px', borderTop: '1px solid #333', display: 'flex', gap: 6, alignItems: 'center' }}>
-        <input value={input} onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
-          placeholder={ui.chatPlaceholder} disabled={loading || !isAuthenticated}
-          style={{ flex: 1, padding: '6px 10px', background: '#2a2a4e', border: '1px solid #444', borderRadius: 6, color: '#eee', fontSize: 13 }}
-        />
-        <button onClick={() => handleSend()} disabled={loading || !input.trim() || !isAuthenticated} className="btn btn-primary" style={{ padding: '6px 14px' }}>
-          {loading ? ui.sending : '→'}
-        </button>
+      <div style={{ padding: '8px 12px', borderTop: '1px solid #333', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {/* Commands button */}
+        <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+          <button
+            onClick={handleCommandsButtonClick}
+            disabled={loading || !isAuthenticated}
+            style={{
+              padding: '4px 12px', background: showCommands ? '#4A90D9' : '#2a2a4e',
+              border: '1px solid #444', borderRadius: 6, color: showCommands ? '#fff' : '#aaa',
+              fontSize: 12, cursor: 'pointer', transition: 'all 0.15s',
+            }}
+          >
+            {ui.commandsButton}
+          </button>
+        </div>
+        {/* Input bar with overlay */}
+        <div style={{ position: 'relative', display: 'flex', gap: 6, alignItems: 'center' }}>
+          <CommandOverlay
+            visible={showCommands}
+            filterText={commandFilter}
+            onSelect={handleCommandSelect}
+            onClose={handleCommandClose}
+          />
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={e => handleInputChange(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
+            placeholder={showCommands ? ui.chatPlaceholderCommand : ui.chatPlaceholder}
+            disabled={loading || !isAuthenticated}
+            style={{ flex: 1, padding: '6px 10px', background: '#2a2a4e', border: '1px solid #444', borderRadius: 6, color: '#eee', fontSize: 13 }}
+          />
+          <button onClick={() => handleSend()} disabled={loading || !input.trim() || !isAuthenticated} className="btn btn-primary" style={{ padding: '6px 14px' }}>
+            {loading ? ui.sending : '→'}
+          </button>
+        </div>
       </div>
     </div>
   );

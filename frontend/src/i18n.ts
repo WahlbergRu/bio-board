@@ -23,6 +23,8 @@ export const ui = {
 
   // Chat
   chatPlaceholder: 'Напишите команду: "Добавь задачу X на 3 дня после Y"',
+  chatPlaceholderCommand: 'Введите / для команд...',
+  commandsButton: '⚡ Команды',
   sending: 'Отправка...',
   lastMessages: 'Последние 100 сообщений',
   fileAttachment: 'Прикрепить файл',
