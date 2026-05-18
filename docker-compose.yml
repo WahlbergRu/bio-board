@@ -14,7 +14,10 @@ services:
       - ./workspace/data:/app/data
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_URL=
     ports:
       - "8401:80"
     depends_on:

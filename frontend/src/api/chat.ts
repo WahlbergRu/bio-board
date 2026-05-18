@@ -1,6 +1,6 @@
 import type { ChatMessage } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://bio-board.fly.dev/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export async function* sendChat(
   message: string,
