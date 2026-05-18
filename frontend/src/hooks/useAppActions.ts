@@ -19,8 +19,9 @@ export function useAppActions() {
     setLoading(true);
     try {
       const newTasks = await fetchTasks();
-      // Always update, even if empty — this ensures sync with backend
-      setTasks(newTasks || []);
+      if (newTasks && newTasks.length > 0) {
+        setTasks(newTasks);
+      }
     } catch (err) {
       console.error('[AppActions] refreshTasks failed:', err);
     } finally {
