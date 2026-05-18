@@ -49,7 +49,7 @@ CORS_ORIGINS=http://localhost:8401,https://bio-board.vercel.app
 
 Или выставить через fly secrets:
 ```bash
-fly secrets set CORS_ORIGINS="https://bio-board.vercel.app"
+fly secrets set CORS_ORIGINS="https://bio-board-5g2g.vercel.app"
 ```
 
 ## 4. Файлы
