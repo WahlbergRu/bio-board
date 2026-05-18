@@ -106,7 +106,11 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated 
 
   const handleSend = useCallback(async (overrideMsg?: string) => {
     const msg = overrideMsg ?? input.trim();
-    if (!msg || loading || !isAuthenticated) return;
+    console.log('[Chat] handleSend called', { msg, loading, isAuthenticated, overrideMsg });
+    if (!msg || loading || !isAuthenticated) {
+      console.log('[Chat] handleSend blocked', { msg: !!msg, loading, isAuthenticated });
+      return;
+    }
 
     const createdName = extractCreatedTaskName(msg);
     if (createdName) setLastAddedTaskName(createdName);
@@ -177,6 +181,7 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated 
   }, [input, loading, isAuthenticated, messages, onMessagesChange, onComplete, setLastAddedTaskName, suggestions]);
 
   const handleSuggestionClick = useCallback((command: string) => () => {
+    console.log('[Chat] Suggestion clicked:', command);
     setSuggestions(prev => {
       if (!prev) return null;
       const next = new Set(prev.executed);

@@ -17,6 +17,7 @@ export default function SuggestionsPanel({ note, error, commands, executed, onEx
       display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 12px',
       background: '#1a1a3a', borderRadius: 12, border: '1px solid #444',
       maxWidth: '85%', alignSelf: 'flex-start',
+      position: 'relative', zIndex: 10, pointerEvents: 'auto',
     }}>
       {error && (
         <div style={{

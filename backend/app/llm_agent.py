@@ -133,29 +133,57 @@ class LLMAgent:
         error_context: str = "",
     ) -> AsyncGenerator[str, None]:
         """Generate command suggestions as JSON for the UI to render as buttons."""
-        system = (
-            "You are a command translator for a Gantt chart planner. "
-            "The user said something that doesn't match fast commands. "
-            "Translate their intent into executable commands.\n\n"
-            "Available fast commands:\n"
-            "- 'добавь задачу {name}' — create task\n"
-            "- '{A} связана с {B}' — link tasks\n"
-            "- '{name} сдвинь на {N}' — shift task\n"
-            "- '{name} перенеси на {YYYY-MM-DD}' — move to date\n"
-            "- '{name} назначь {person}' — assign person\n"
-            "- '{name} удали' — delete task\n"
-            "- '{name} скопируй' — duplicate task\n\n"
-            "CRITICAL RULES:\n"
-            "- Output ONLY valid JSON with no markdown wrapping\n"
-            "- Format: {\"suggestions\": [{\"label\": \"Button text\", \"command\": \"actual command\"}], \"note\": \"Brief explanation\"}\n"
-            "- Commands must use exact fast command syntax\n"
-            "- Reference tasks by name (not ID)\n"
-            "- If no tasks exist, suggest creating them first\n"
-            "- Respond note in Russian\n\n"
-            f"Current plan:\n{plan_context}\n\n"
-            f"Fast parser error: {error_context}\n"
-            "Translate this user message into commands."
-        )
+        is_llm_mode = "/llm" in user_message.lower() or error_context is None
+        
+        if is_llm_mode:
+            system = (
+                "You are a command translator for a Gantt chart planner. "
+                "The user wants to modify their plan. "
+                "Translate their intent into executable fast commands.\n\n"
+                "Available fast commands:\n"
+                "- 'добавь задачу {name}' — create task\n"
+                "- 'добавь задачу {name} на {N} дней с исполнителем {person}' — create with assignee\n"
+                "- '{A} связана с {B}' — link tasks\n"
+                "- '{name} сдвинь на {N}' — shift task\n"
+                "- '{name} перенеси на {YYYY-MM-DD}' — move to date\n"
+                "- '{name} назначь {person}' — assign person\n"
+                "- '{name} удали' — delete task\n"
+                "- '{name} скопируй' — duplicate task\n\n"
+                "RULES:\n"
+                "- Output ONLY valid JSON\n"
+                "- Format: {\"suggestions\": [{\"label\": \"Button text\", \"command\": \"actual command\"}], \"note\": \"Brief explanation in Russian\"}\n"
+                "- Commands must use exact fast command syntax\n"
+                "- Include ALL info from user message (assignee, dates, etc.)\n"
+                "- If user mentions dates, compute the actual YYYY-MM-DD\n"
+                "- Multiple commands = multiple suggestions\n"
+                "- Respond note in Russian\n\n"
+                f"Current plan:\n{plan_context}\n\n"
+                "Translate this user message into commands."
+            )
+        else:
+            system = (
+                "You are a command translator for a Gantt chart planner. "
+                "The user said something that doesn't match fast commands. "
+                "Translate their intent into executable commands.\n\n"
+                "Available fast commands:\n"
+                "- 'добавь задачу {name}' — create task\n"
+                "- '{A} связана с {B}' — link tasks\n"
+                "- '{name} сдвинь на {N}' — shift task\n"
+                "- '{name} перенеси на {YYYY-MM-DD}' — move to date\n"
+                "- '{name} назначь {person}' — assign person\n"
+                "- '{name} удали' — delete task\n"
+                "- '{name} скопируй' — duplicate task\n\n"
+                "CRITICAL RULES:\n"
+                "- Output ONLY valid JSON with no markdown wrapping\n"
+                "- Format: {\"suggestions\": [{\"label\": \"Button text\", \"command\": \"actual command\"}], \"note\": \"Brief explanation\"}\n"
+                "- Commands must use exact fast command syntax\n"
+                "- Reference tasks by name (not ID)\n"
+                "- If no tasks exist, suggest creating them first\n"
+                "- Respond note in Russian\n\n"
+                f"Current plan:\n{plan_context}\n\n"
+                f"Fast parser error: {error_context}\n"
+                "Translate this user message into commands."
+            )
 
         messages = [{"role": "system", "content": system}, {"role": "user", "content": user_message}]
 

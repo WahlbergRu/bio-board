@@ -67,39 +67,32 @@ async def chat(
         plan_context = "\n".join(plan_lines) if plan_lines else "(empty plan)"
         
         async def llm_stream():
-            if force_llm:
-                # Direct LLM mode — free-form response
-                full_response = ""
-                async for chunk in llm.direct_chat(message, plan_context):
-                    full_response += chunk
-                yield f"data: {full_response}\n\n"
-            else:
-                # Suggest mode — try to parse as JSON suggestions
-                full_response = ""
-                async for chunk in llm.suggest_commands(message, plan_context, error_context=result_text):
-                    full_response += chunk
+            # Always use suggest_commands for button suggestions
+            full_response = ""
+            async for chunk in llm.suggest_commands(message, plan_context, error_context=result_text if not force_llm else None):
+                full_response += chunk
+            
+            try:
+                cleaned = full_response.strip()
+                if cleaned.startswith("```"):
+                    cleaned = cleaned.split("```")[1]
+                    if cleaned.startswith("json"):
+                        cleaned = cleaned[4:]
+                    cleaned = cleaned.rstrip("`").strip()
                 
-                try:
-                    cleaned = full_response.strip()
-                    if cleaned.startswith("```"):
-                        cleaned = cleaned.split("```")[1]
-                        if cleaned.startswith("json"):
-                            cleaned = cleaned[4:]
-                        cleaned = cleaned.rstrip("`").strip()
-                    
-                    parsed = json.loads(cleaned)
-                    if isinstance(parsed, dict) and "suggestions" in parsed:
-                        suggestions_payload = json.dumps({
-                            "type": "suggestions",
-                            "note": parsed.get("note", ""),
-                            "error": result_text,
-                            "commands": parsed["suggestions"],
-                        }, ensure_ascii=False)
-                        yield f"data: {suggestions_payload}\n\n"
-                    else:
-                        yield f"data: {full_response}\n\n"
-                except (json.JSONDecodeError, IndexError):
+                parsed = json.loads(cleaned)
+                if isinstance(parsed, dict) and "suggestions" in parsed:
+                    suggestions_payload = json.dumps({
+                        "type": "suggestions",
+                        "note": parsed.get("note", ""),
+                        "error": result_text,
+                        "commands": parsed["suggestions"],
+                    }, ensure_ascii=False)
+                    yield f"data: {suggestions_payload}\n\n"
+                else:
                     yield f"data: {full_response}\n\n"
+            except (json.JSONDecodeError, IndexError):
+                yield f"data: {full_response}\n\n"
             
             yield "data: [DONE]\n\n"
         
