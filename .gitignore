@@ -13,6 +13,8 @@ dist/
 
 # Docker
 .env
+.env.local
+.env.*.local
 
 # IDE
 .vscode/
@@ -26,3 +28,9 @@ Thumbs.db
 # Project
 plan.json
 workspace/
+
+# Deploy secrets (keep templates, not real values)
+backend/.env
+backend/.env.*
+frontend/.env.local
+frontend/.env.production
