@@ -67,6 +67,14 @@ a:hover { color: var(--accent-hover); }
   flex-direction: column;
 }
 
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #888;
+}
+
 .empty-state {
   position: absolute;
   inset: 0;

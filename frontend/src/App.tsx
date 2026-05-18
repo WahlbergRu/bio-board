@@ -20,7 +20,7 @@ import { useAppActions } from './hooks/useAppActions';
 
 export default function App() {
   const { tasks, chatMessages, selectedTask, viewMode, setTasks, setSelectedTask, setViewMode } = useStore();
-  const { notification, unsaved, setUnsaved, notify, refreshTasks, runCommand, handleTaskUpdate } = useAppActions();
+  const { notification, unsaved, setUnsaved, notify, refreshTasks, runCommand, handleTaskUpdate, loading } = useAppActions();
 
   const [zoomLevel, setZoomLevel] = useState<'day' | 'week' | 'month' | 'quarter'>('week');
   const [showAuth, setShowAuth] = useState(false);
@@ -138,11 +138,14 @@ export default function App() {
       />
       <div className="app-main">
         <div className="app-content">
-          {viewMode === 'gantt'
-            ? <GanttView tasks={tasks} onTaskClick={t => { setSelectedTask(t); setShowModal(true); }} onTaskUpdate={handleTaskUpdate} onContextMenu={handleContextMenu} zoom={zoomLevel} />
-            : <KanbanView tasks={tasks} onTaskClick={t => { setSelectedTask(t); setShowModal(true); }} onReassign={handleReassign} />
-          }
-          {tasks.length === 0 && <div className="empty-state">{ui.noTasks}</div>}
+          {loading && tasks.length === 0 ? (
+            <div className="loading-state">Загрузка...</div>
+          ) : viewMode === 'gantt' ? (
+            <GanttView tasks={tasks} onTaskClick={t => { setSelectedTask(t); setShowModal(true); }} onTaskUpdate={handleTaskUpdate} onContextMenu={handleContextMenu} zoom={zoomLevel} />
+          ) : (
+            <KanbanView tasks={tasks} onTaskClick={t => { setSelectedTask(t); setShowModal(true); }} onReassign={handleReassign} />
+          )}
+          {tasks.length === 0 && !loading && <div className="empty-state">{ui.noTasks}</div>}
           {unsaved && <div className="unsaved-warning">⚠️ Есть несохранённые изменения</div>}
         </div>
         <div className="app-sidebar">

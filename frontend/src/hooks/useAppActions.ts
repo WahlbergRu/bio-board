@@ -8,6 +8,7 @@ export function useAppActions() {
   const { tasks, setTasks } = useStore();
   const [notification, setNotification] = useState('');
   const [unsaved, setUnsaved] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const notify = useCallback((msg: string) => {
     setNotification(msg);
@@ -15,15 +16,15 @@ export function useAppActions() {
   }, []);
 
   const refreshTasks = useCallback(async () => {
-    console.log('[AppActions] refreshTasks called');
+    setLoading(true);
     try {
       const newTasks = await fetchTasks();
-      console.log('[AppActions] fetchTasks returned:', newTasks);
       // Always update, even if empty — this ensures sync with backend
       setTasks(newTasks || []);
-      console.log('[AppActions] setTasks called with', (newTasks || []).length, 'tasks');
     } catch (err) {
       console.error('[AppActions] refreshTasks failed:', err);
+    } finally {
+      setLoading(false);
     }
   }, [setTasks]);
 
@@ -57,5 +58,6 @@ export function useAppActions() {
     refreshTasks,
     runCommand,
     handleTaskUpdate,
+    loading,
   };
 }
