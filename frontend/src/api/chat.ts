@@ -1,12 +1,12 @@
 import type { ChatMessage } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://bio-board.fly.dev';
+const API_URL = import.meta.env.VITE_API_URL || 'https://bio-board.fly.dev/api';
 
 export async function* sendChat(
   message: string,
   history: ChatMessage[],
 ): AsyncGenerator<string, void, unknown> {
-  const res = await fetch(`${API_URL}/api/chat/`, {
+  const res = await fetch(`${API_URL}/chat/`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
