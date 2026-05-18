@@ -132,9 +132,22 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
         fullText += chunk;
       }
 
+      // Clean SSE format: remove "data: " prefixes and "[DONE]" markers
+      const cleanText = fullText
+        .split('\n')
+        .map(line => {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('data: ')) return trimmed.slice(6);
+          if (trimmed === 'data:') return '';
+          if (trimmed === '[DONE]') return '';
+          return trimmed;
+        })
+        .filter(Boolean)
+        .join('');
+
       try {
-        if (fullText.startsWith('{')) {
-          const data = JSON.parse(fullText);
+        if (cleanText.startsWith('{')) {
+          const data = JSON.parse(cleanText);
           if (data.type === 'suggestions') {
             parsedSuggestions = {
               note: data.note,
@@ -146,19 +159,19 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
             onMessagesChange(newArr);
           } else {
             const newArr = updated.map((m, i) =>
-              i === updated.length - 1 ? { ...m, content: fullText } : m
+              i === updated.length - 1 ? { ...m, content: cleanText } : m
             );
             onMessagesChange(newArr);
           }
         } else {
           const newArr = updated.map((m, i) =>
-            i === updated.length - 1 ? { ...m, content: fullText } : m
+            i === updated.length - 1 ? { ...m, content: cleanText } : m
           );
           onMessagesChange(newArr);
         }
       } catch {
         const newArr = updated.map((m, i) =>
-          i === updated.length - 1 ? { ...m, content: fullText } : m
+          i === updated.length - 1 ? { ...m, content: cleanText || fullText } : m
         );
         onMessagesChange(newArr);
       }
@@ -262,7 +275,15 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
             ref={inputRef}
             value={input}
             onChange={e => handleInputChange(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                // If overlay is open, let CommandOverlay handle Enter
+                if (!showCommands) {
+                  handleSend();
+                }
+              }
+            }}
             placeholder={showCommands ? ui.chatPlaceholderCommand : ui.chatPlaceholder}
             disabled={loading || !isAuthenticated}
             style={{ flex: 1, padding: '6px 10px', background: '#2a2a4e', border: '1px solid #444', borderRadius: 6, color: '#eee', fontSize: 13 }}
