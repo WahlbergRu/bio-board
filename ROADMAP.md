@@ -1,90 +1,127 @@
 # Roadmap to Production
 
-## Technical Debts
+## Technical Debts — Status Update
 
-Conscious shortcuts taken for MVP delivery:
+| Area | Shortcut | Impact | Status |
+|------|----------|--------|--------|
+| Storage | In-memory store + JSON file | Data loss on concurrent writes, no ACID | ⚠️ Partially done — JSON persistence + auto-save implemented |
+| Auth | Basic JWT only | No OAuth2/Keycloak, no multi-user roles | ⚠️ Partially done — JWT login with hashed passwords implemented |
+| Validation | No date range checks | End before start possible | ⚠️ Partially done — format/type/cycle checks done, date logic missing |
+| Pagination | None | All tasks in one response | ❌ Not done |
+| Frontend | No error boundaries | White screen on JS error | ❌ Not done |
+| E2E Testing | None | Regressions undetected | ❌ Not done |
+| CORS | Configurable but defaults to `*` | Open to any origin in default config | ⚠️ Partially done — `CORS_ORIGINS` env var supported |
+| Secrets | Env vars only | Key exposure risk | ❌ Not done |
+| WebSocket | Echo-only endpoint | No real real-time sync | ⚠️ Partially done — endpoint exists, no broadcast logic |
+| Logging | Python stdlib print only | No structured logs, no ELK | ❌ Not done |
+| Monitoring | No metrics | Blind to errors/performance | ❌ Not done |
+| CI/CD | Manual deployment | No automated pipeline | ❌ Not done |
 
-| Area | Shortcut | Impact |
-|------|----------|--------|
-| Storage | In-memory store (`dict`), JSON file | Data loss on crash, no concurrency |
-| Auth | None | Anyone can read/write/destroy plans |
-| Validation | No date sanity checks | End before start, overlapping deps |
-| Pagination | None | All tasks in one response |
-| Frontend | No error boundaries | White screen on JS error |
-| Testing | No E2E tests | Regressions undetected |
-| CORS | `allow_origins=["*"]` | Open to any origin |
-| Secrets | Env vars only, no vault | Key exposure risk |
+## What's Already Implemented (MVP+)
+
+Since initial roadmap, these were added:
+- ✅ JWT authentication (login/logout/me endpoints)
+- ✅ Rate limiting middleware (30 req/min per IP)
+- ✅ Pydantic validation: date format, progress range, task type, HTML sanitization
+- ✅ Dependency cycle detection (DFS)
+- ✅ Task limit (500 max)
+- ✅ JSON file persistence with auto-save on every mutation
+- ✅ Runtime LLM settings (API key, base URL, model)
+- ✅ Toast notification system (frontend)
+- ✅ Confirmation modals (delete all, task removal)
+- ✅ iCal export endpoint
+- ✅ Command Engine (Bag-of-Words parser — 7 commands)
+- ✅ Russian i18n (104 UI strings)
+- ✅ Unit tests: Vitest (frontend), Pytest (backend)
+- ✅ Kubernetes manifests (deployments, services, HPA, PDB, Ingress)
+- ✅ Example projects (4 Excel samples)
+- ✅ Settings modal for LLM config
+- ✅ Auth modal for login
+- ✅ Context menu, suggestions panel
 
 ## What's Missing for Production
 
-### High Priority
+### HIGH Priority — Must Have
 
-| Item | Description | Effort |
-|------|-------------|--------|
-| **Database** | PostgreSQL or SQLite with Alembic migrations | 3-5 days |
-| **Authentication** | Keycloak/OAuth2 with role-based access | 5-7 days |
-| **Input Validation** | Date ranges, dependency cycles, field constraints | 1-2 days |
+| # | Item | Description | Effort | Risk if skipped |
+|---|------|-------------|--------|-----------------|
+| 1 | **Database (PostgreSQL)** | Replace JSON with proper DB. Alembic migrations, connection pooling, transactions | 3-5 days | Data corruption on concurrent writes, no scalability |
+| 2 | **Production Auth (Keycloak/OAuth2)** | Replace basic JWT with full OAuth2. RBAC, token refresh, session management | 3-5 days | No multi-tenant support, weak security |
+| 3 | **Date Range Validation** | Validate `end_date >= start_date`, no overlapping dependencies | 1 day | Invalid plans, broken Gantt rendering |
+| 4 | **Error Boundaries** | React error boundaries + fallback UI + toast on failure | 1 day | White screen on any JS error |
 
-### Medium Priority
+### MEDIUM Priority — Should Have
 
-| Item | Description | Effort |
-|------|-------------|--------|
-| **CI/CD Pipeline** | GitHub Actions: lint, test, build, deploy | 2-3 days |
-| **Monitoring** | Prometheus metrics + Grafana dashboards | 2-3 days |
-| **Logging** | Structured JSON logs, ELK stack integration | 1-2 days |
-| **E2E Tests** | Playwright: full user flows | 3-4 days |
-| **Error Boundaries** | React error boundaries, toast notifications | 1 day |
-| **Pagination** | Cursor-based pagination on task list | 1 day |
-| **WebSocket** | Real-time plan updates for multi-user | 2-3 days |
+| # | Item | Description | Effort | Risk if skipped |
+|---|------|-------------|--------|-----------------|
+| 5 | **CI/CD Pipeline** | GitHub Actions: lint, typecheck, test, build, deploy to K8s | 2-3 days | Manual errors, no quality gates |
+| 6 | **E2E Tests** | Playwright: login → upload → edit → export flows | 3-4 days | Regressions in user journeys undetected |
+| 7 | **Structured Logging** | JSON logs with correlation IDs, request/response logging | 1-2 days | Impossible to debug production issues |
+| 8 | **Monitoring** | Prometheus metrics (req/sec, latency, errors) + Grafana | 2-3 days | Blind to performance degradation |
+| 9 | **WebSocket Real-time** | Broadcast plan changes to connected clients | 1-2 days | Users see stale data in multi-user mode |
+| 10 | **Pagination** | Cursor-based pagination on `GET /api/tasks/` | 1 day | Slow response with 500+ tasks |
 
-### Low Priority
+### LOW Priority — Nice to Have
 
-| Item | Description | Effort |
-|------|-------------|--------|
-| **Rate Limiting** | Per-user API rate limits | 1 day |
-| **Audit Log** | Track all plan mutations with user/timestamp | 2 days |
-| **Backup Strategy** | Automated DB backups, restore procedure | 1 day |
-| **CORS Hardening** | Whitelist specific origins | 0.5 day |
-| **Secret Management** | Docker secrets or HashiCorp Vault | 1-2 days |
+| # | Item | Description | Effort |
+|---|------|-------------|--------|
+| 11 | **Audit Log** | Track all plan mutations: who, what, when, old→new | 2 days |
+| 12 | **Backup Strategy** | Automated DB backups, point-in-time recovery | 1 day |
+| 13 | **CORS Hardening** | Default `CORS_ORIGINS` to production domains | 0.5 day |
+| 14 | **Secret Management** | Docker secrets or K8s secrets for API keys | 1 day |
+| 15 | **LLM Dry-run** | Preview AI changes before applying | 2 days |
+| 16 | **ESLint / Prettier** | Frontend code quality enforcement | 1 day |
 
 ## Risks
 
-| Risk | Likelihood | Mitigation |
-|------|-----------|------------|
-| **LLM hallucination** — AI modifies plan incorrectly | High | Dry-run preview, user confirmation before apply |
-| **Data loss** — no persistent DB | High | Prioritize database migration |
-| **CORS in production** — wildcard origin | Medium | Configure before external access |
-| **D3 performance** — 1000+ tasks lag | Medium | Virtual rendering, pagination, web workers |
-| **OpenAI API downtime** | Medium | Fallback to manual editing, retry logic |
-| **Concurrent edits** — race conditions | Low | Optimistic locking with DB |
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| **LLM hallucination** — AI modifies plan incorrectly | High | High | Dry-run preview + user confirmation before apply |
+| **Data corruption** — JSON file race conditions | High | Critical | Migrate to PostgreSQL ASAP |
+| **D3 performance** — 1000+ tasks lag render | Medium | Medium | Virtual rendering, pagination, web workers |
+| **OpenAI API downtime** | Medium | High | Fallback to manual editing, retry logic, command engine works offline |
+| **Token theft** — JWT without HTTPS | Medium | Critical | Enforce TLS in production |
+| **Concurrent edits** — two users modify same task | Low | Medium | Optimistic locking with DB version column |
+| **XSS via task names** | Low | Medium | HTML sanitization already in Pydantic models |
 
-## Priority Order
+## Priority Order (Updated)
 
 ```
-1. Database (PostgreSQL/SQLite)          ████████ HIGH
-2. Authentication (Keycloak/OAuth)       ████████ HIGH
-3. Input Validation                      ██████   HIGH
-4. CI/CD Pipeline                        █████    MEDIUM
-5. Monitoring (Prometheus+Grafana)       █████    MEDIUM
-6. E2E Tests (Playwright)                █████    MEDIUM
-7. Error Boundaries + Toast              ███      MEDIUM
-8. Pagination                            ███      MEDIUM
-9. WebSocket Real-time                   ███      MEDIUM
-10. Rate Limiting                        ██       LOW
-11. Audit Log                            ██       LOW
-12. Backup Strategy                      ██       LOW
-13. CORS Hardening                       █        LOW
-14. Secret Management                    █        LOW
+ 1. Database (PostgreSQL)              ████████  HIGH — 3-5 days
+ 2. Production Auth (OAuth2/Keycloak)  ██████    HIGH — 3-5 days
+ 3. Date Range Validation              █████     HIGH — 1 day
+ 4. Error Boundaries                   ████      HIGH — 1 day
+ 5. CI/CD Pipeline                     █████     MEDIUM — 2-3 days
+ 6. E2E Tests (Playwright)             █████     MEDIUM — 3-4 days
+ 7. Structured Logging                 ████      MEDIUM — 1-2 days
+ 8. Monitoring (Prometheus+Grafana)    ████      MEDIUM — 2-3 days
+ 9. WebSocket Real-time                ███       MEDIUM — 1-2 days
+10. Pagination                         ███       MEDIUM — 1 day
+11. Audit Log                          ██        LOW — 2 days
+12. Backup Strategy                    ██        LOW — 1 day
+13. LLM Dry-run                        ██        LOW — 2 days
+14. CORS Hardening                     █         LOW — 0.5 day
+15. Secret Management                  █         LOW — 1 day
+16. ESLint / Prettier                  █         LOW — 1 day
 ```
 
 ## Estimated Total Effort
 
-| Phase | Items | Duration |
-|-------|-------|----------|
-| **Phase 1** — Stability | DB + Auth + Validation | 2-3 weeks |
-| **Phase 2** — Operations | CI/CD + Monitoring + Logging | 1-2 weeks |
-| **Phase 3** — Quality | E2E + Error Boundaries + Pagination | 1-2 weeks |
-| **Phase 4** — Scale | WebSocket + Rate Limit + Audit | 1-2 weeks |
-| **Phase 5** — Hardening | Backup + CORS + Secrets | 3-5 days |
+| Phase | Items | Duration | Key Deliverable |
+|-------|-------|----------|-----------------|
+| **Phase 1** — Stability | DB + Date Validation + Error Boundaries | 1-2 weeks | Persistent, validated, crash-resilient |
+| **Phase 2** — Security | OAuth2 + CORS Hardening + Secrets | 1-2 weeks | Production-ready auth and security |
+| **Phase 3** — Operations | CI/CD + Logging + Monitoring | 1-2 weeks | Observable, automated deployment |
+| **Phase 4** — Quality | E2E Tests + Pagination + WebSocket | 1-2 weeks | Tested, real-time, scalable |
+| **Phase 5** — Polish | Audit Log + Backup + LLM Dry-run + ESLint | 1 week | Auditable, user-friendly |
 
-**Total: 6-10 weeks** for production-ready deployment.
+**Total: 5-8 weeks** for production-ready deployment.
+
+## Quick Wins (Can be done in parallel, < 2 days each)
+
+These can be done immediately while Phase 1 is in progress:
+- [ ] Date range validation in `TaskBase` validator
+- [ ] React error boundaries in `App.tsx`
+- [ ] Default `CORS_ORIGINS` to empty string instead of `*`
+- [ ] ESLint + Prettier config for frontend
+- [ ] Add `X-Request-ID` header correlation
