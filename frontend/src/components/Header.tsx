@@ -12,7 +12,7 @@ interface HeaderProps {
   onUpload: (count: number) => void;
   onExport: () => void;
   onExportIcal: () => void;
-  onSave: () => void;
+  onSave?: () => void;
   onToggleAutoSave: () => void;
   autoSave: boolean;
   onLogin: () => void;
@@ -45,9 +45,12 @@ export default function Header({
         <option value="quarter">{ui.viewQuarter}</option>
       </select>
       <div style={{ display: 'flex', gap: 6, marginLeft: 'auto', alignItems: 'center', flexWrap: 'wrap' }}>
-        <button onClick={onSave} className="btn btn-primary" title={ui.savePlan}>{ui.savePlan}</button>
+        {onSave && <button onClick={onSave} className="btn btn-primary" title={ui.savePlan}>{ui.savePlan}</button>}
         <button onClick={onToggleAutoSave} className="btn"
-          style={{ color: autoSave ? '#7ED321' : '#888' }}>
+          style={{
+            background: autoSave ? '#7ED321' : '#333',
+            color: autoSave ? '#1a1a2e' : '#888'
+          }}>
           {autoSave ? ui.autoSaveOn : ui.autoSaveOff}
         </button>
         <span className="btn-sep" />

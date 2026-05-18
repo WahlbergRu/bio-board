@@ -2,11 +2,27 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: ai-gantt-ingress
+  namespace: ai-gantt
   labels:
     app: ai-gantt
+    version: "0.1.0"
+    managed-by: kustomize
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    # REMOVED: rewrite-target was breaking /api path — backend expects /api prefix
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header X-Content-Type-Options "nosniff" always;
+      add_header X-Frame-Options "DENY" always;
+      add_header X-XSS-Protection "1; mode=block" always;
+    # Rate limiting (10 req/s per IP)
+    nginx.ingress.kubernetes.io/limit-rps: "10"
+    # SSL redirect
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
+  ingressClassName: nginx
   tls:
     - hosts:
         - ai-gantt.example.com
@@ -15,6 +31,7 @@ spec:
     - host: ai-gantt.example.com
       http:
         paths:
+          # Frontend SPA — no rewrite needed
           - path: /
             pathType: Prefix
             backend:
@@ -22,6 +39,7 @@ spec:
                 name: frontend
                 port:
                   number: 80
+          # API — direct path, no rewrite
           - path: /api
             pathType: Prefix
             backend:
@@ -29,7 +47,16 @@ spec:
                 name: backend
                 port:
                   number: 8000
+          # MCP — direct path
           - path: /mcp
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          # WebSocket
+          - path: /ws
             pathType: Prefix
             backend:
               service:

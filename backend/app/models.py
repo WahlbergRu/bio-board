@@ -1,25 +1,25 @@
 from pydantic import BaseModel, field_validator
 import re
+import html
 from datetime import datetime
 
 
-class Task(BaseModel):
-    id: str
+class TaskBase(BaseModel):
+    """Shared fields for all task-related models."""
     name: str
     description: str = ""
     start_date: str
-    end_date: str
+    end_date: str = ""
     progress: int = 0
     type: str = "task"
     dependencies: list[str] = []
     assignee: str = ""
     project: str = ""
-    model_config = {"from_attributes": True}
 
     @field_validator("start_date", "end_date")
     @classmethod
     def date_format(cls, v: str) -> str:
-        if not re.match(r"^\d{4}-\d{2}-\d{2}$", v):
+        if v and not re.match(r"^\d{4}-\d{2}-\d{2}$", v):
             raise ValueError("Date must be YYYY-MM-DD")
         return v
 
@@ -42,22 +42,21 @@ class Task(BaseModel):
     def sanitize_html(cls, v: str) -> str:
         if not v:
             return v
-        return v.replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+        return html.escape(v, quote=True)
 
 
-class TaskCreate(BaseModel):
-    name: str
-    description: str = ""
-    start_date: str
+class Task(TaskBase):
+    id: str
+    model_config = {"from_attributes": True}
+
+
+class TaskCreate(TaskBase):
+    """For creating new tasks — end_date optional (auto-calculated)."""
     end_date: str = ""
-    progress: int = 0
-    type: str = "task"
-    dependencies: list[str] = []
-    assignee: str = ""
-    project: str = ""
 
 
 class TaskUpdate(BaseModel):
+    """For updating tasks — all fields optional, id required."""
     id: str
     name: str | None = None
     description: str | None = None

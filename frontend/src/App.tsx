@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from './store';
-import { client } from './api/client';
-import { fetchTasks, seedPlan } from './api/tasks';
 import { exportExcel, exportIcal } from './api/excel';
+import { login, setAuthToken, clearAuthToken } from './api/auth';
+import { generateDemoTasks } from './data/demoTasks';
 import Header from './components/Header';
 import GanttView from './components/GanttView';
 import KanbanView from './components/KanbanView';
@@ -16,11 +16,12 @@ import ConfirmModal from './components/ConfirmModal';
 import SettingsModal from './components/SettingsModal';
 import { Task } from './types';
 import { ui } from './i18n';
-
-const SAVE_KEY = 'gantt_plan';
+import { useAppActions } from './hooks/useAppActions';
 
 export default function App() {
-  const { tasks, chatMessages, selectedTask, viewMode, autoSave, setTasks, setMessages, setSelectedTask, setViewMode, setAutoSave } = useStore();
+  const { tasks, chatMessages, selectedTask, viewMode, setTasks, setSelectedTask, setViewMode } = useStore();
+  const { notification, unsaved, setUnsaved, notify, refreshTasks, runCommand, handleTaskUpdate } = useAppActions();
+
   const [zoomLevel, setZoomLevel] = useState<'day' | 'week' | 'month' | 'quarter'>('week');
   const [showAuth, setShowAuth] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -28,62 +29,18 @@ export default function App() {
   const [showConfirmClear, setShowConfirmClear] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [notification, setNotification] = useState('');
-  const [unsaved, setUnsaved] = useState(false);
-  
-  // Context Menu State
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; task: Task } | null>(null);
 
+  // Init: load auth state + fetch from backend
   useEffect(() => {
-    const saved = localStorage.getItem(SAVE_KEY);
-    if (saved) { try { setTasks(JSON.parse(saved)); } catch {} }
-    const auth = localStorage.getItem('gantt_auth');
-    if (auth) setIsAuthenticated(true);
-    fetchTasks().then(setTasks).catch(() => {});
-  }, [setTasks]);
-
-  useEffect(() => {
-    if (autoSave && tasks.length > 0) {
-      localStorage.setItem(SAVE_KEY, JSON.stringify(tasks));
-      setUnsaved(false);
-    }
-  }, [tasks, autoSave]);
-
-  const notify = (msg: string) => { setNotification(msg); setTimeout(() => setNotification(''), 3000); };
-
-  // Command Runner: Sends message to backend CommandEngine via Chat API (silent execution)
-  const runCommand = async (message: string) => {
-    try {
-      // Using client to ensure correct baseURL and headers
-      await client.post('/chat/', { message, history: [] });
-      // Refresh tasks after command
-      fetchTasks().then(setTasks).catch(() => {});
-    } catch (err) {
-      console.error("Command failed", err);
-    }
-  };
-
-  const handleSave = () => {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(tasks));
-    setUnsaved(false);
-    notify(ui.saveSuccess);
-  };
-
-  const handleTaskClick = (t: Task) => { setSelectedTask(t); setShowModal(true); };
+    if (localStorage.getItem('gantt_auth')) setIsAuthenticated(true);
+    refreshTasks();
+  }, [refreshTasks]);
 
   const handleTaskSave = (t: Task) => {
     handleTaskUpdate(t);
     setShowModal(false);
     setUnsaved(true);
-  };
-
-  const handleTaskUpdate = async (task: Task) => {
-    try {
-      await client.put(`/tasks/${task.id}`, task);
-      useStore.getState().updateTask(task.id, task);
-    } catch (err) {
-      console.error("Failed to update task", err);
-    }
   };
 
   const handleReassign = (id: string, assignee: string) => {
@@ -101,21 +58,17 @@ export default function App() {
     const task = contextMenu.task;
     setContextMenu(null);
 
-    switch (action) {
-      case 'copy':
-        await runCommand(`Скопируй задачу ${task.name}`);
-        notify(`Задача "${task.name}" скопирована`);
-        break;
-      case 'delete':
-        await runCommand(`Удали задачу ${task.name}`);
-        notify(`Задача "${task.name}" удалена`);
-        break;
-      case 'shift_fwd':
-        await runCommand(`Сдвинь задачу ${task.name} на 1 день вперед`);
-        break;
-      case 'shift_back':
-        await runCommand(`Сдвинь задачу ${task.name} на 1 день назад`);
-        break;
+    const commands: Record<string, string> = {
+      copy: `Скопируй задачу ${task.name}`,
+      delete: `Удали задачу ${task.name}`,
+      shift_fwd: `Сдвинь задачу ${task.name} на 1 день вперед`,
+      shift_back: `Сдвинь задачу ${task.name} на 1 день назад`,
+    };
+    const cmd = commands[action];
+    if (cmd) {
+      await runCommand(cmd);
+      if (action === 'copy') notify(`Задача "${task.name}" скопирована`);
+      if (action === 'delete') notify(`Задача "${task.name}" удалена`);
     }
   };
 
@@ -125,50 +78,84 @@ export default function App() {
     notify(`Задача "${task.name}" создана`);
   };
 
-  const handleSeed = () => { seedPlan().then(() => fetchTasks()).then(setTasks).catch(() => {}); };
-  const handleUpload = (count: number) => { fetchTasks().then(setTasks); notify(ui.uploadSuccess.replace('{count}', String(count))); };
+  const handleSeed = () => {
+    const demoTasks = generateDemoTasks();
+    setTasks(demoTasks);
+    // Also push to backend for persistence
+    demoTasks.forEach(task => {
+      import('./api/client').then(({ client }) => {
+        client.post('/tasks/', task).catch(() => {});
+      });
+    });
+  };
+
+  const handleUpload = (count: number) => {
+    refreshTasks();
+    notify(ui.uploadSuccess.replace('{count}', String(count)));
+  };
+
   const handleExport = () => { exportExcel(); notify(ui.exportSuccess); };
   const handleExportIcal = () => { exportIcal(tasks); notify(ui.exportSuccess); };
 
   const handleLogin = () => setShowAuth(true);
-  const handleLogout = () => { localStorage.removeItem('gantt_auth'); setIsAuthenticated(false); };
+  const handleLogout = () => { clearAuthToken(); setIsAuthenticated(false); };
+
   const handleClearAll = async () => {
-    await client.delete('/plan/reset');
-    setTasks([]);
-    localStorage.removeItem(SAVE_KEY);
-    setUnsaved(false);
-    notify(ui.clearAllDone);
+    try {
+      const { client } = await import('./api/client');
+      await client.delete('/plan/reset');
+      setTasks([]);
+      localStorage.removeItem('gantt_plan');
+      setUnsaved(false);
+      notify(ui.clearAllDone);
+    } catch {
+      notify(ui.saveError);
+    }
     setShowConfirmClear(false);
   };
 
+  const handleAuth = async (username: string, password: string) => {
+    try {
+      const { access_token } = await login(username, password);
+      setAuthToken(access_token);
+      setIsAuthenticated(true);
+      setShowAuth(false);
+    } catch {
+      notify(ui.loginError);
+    }
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#1a1a2e', color: '#eee' }}
-         onClick={() => setContextMenu(null)}>
-      <Header viewMode={viewMode} zoomLevel={zoomLevel} onViewChange={setViewMode} onZoomChange={setZoomLevel}
+    <div className="app-root" onClick={() => setContextMenu(null)}>
+      <Header
+        viewMode={viewMode} zoomLevel={zoomLevel} onViewChange={setViewMode} onZoomChange={setZoomLevel}
         onSeed={handleSeed} onUpload={handleUpload} onExport={handleExport} onExportIcal={handleExportIcal}
-        onSave={handleSave} onToggleAutoSave={() => setAutoSave(!autoSave)} autoSave={autoSave}
+        onToggleAutoSave={() => useStore.getState().setAutoSave(!useStore.getState().autoSave)}
+        autoSave={useStore.getState().autoSave}
         onLogin={handleLogin} onLogout={handleLogout} onClearAll={() => setShowConfirmClear(true)}
-        onSettings={() => setShowSettings(true)} isAuthenticated={isAuthenticated} 
-        onCreateTask={() => setShowCreateModal(true)} />
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <div style={{ flex: 1, overflow: 'auto' }}>
+        onSettings={() => setShowSettings(true)} isAuthenticated={isAuthenticated}
+        onCreateTask={() => setShowCreateModal(true)}
+      />
+      <div className="app-main">
+        <div className="app-content">
           {viewMode === 'gantt'
-            ? <GanttView tasks={tasks} onTaskClick={handleTaskClick} onTaskUpdate={handleTaskUpdate} onContextMenu={handleContextMenu} zoom={zoomLevel} />
-            : <KanbanView tasks={tasks} onTaskClick={handleTaskClick} onReassign={handleReassign} />
+            ? <GanttView tasks={tasks} onTaskClick={t => { setSelectedTask(t); setShowModal(true); }} onTaskUpdate={handleTaskUpdate} onContextMenu={handleContextMenu} zoom={zoomLevel} />
+            : <KanbanView tasks={tasks} onTaskClick={t => { setSelectedTask(t); setShowModal(true); }} onReassign={handleReassign} />
           }
-          {tasks.length === 0 && <div style={{ color: '#666', textAlign: 'center', padding: 60, fontSize: 14 }}>{ui.noTasks}</div>}
-          {unsaved && !autoSave && <div style={{ fontSize: 11, color: '#F5A623', textAlign: 'center', padding: 4 }}>⚠️ Есть несохранённые изменения</div>}
+          {tasks.length === 0 && <div className="empty-state">{ui.noTasks}</div>}
+          {unsaved && <div className="unsaved-warning">⚠️ Есть несохранённые изменения</div>}
         </div>
-        <div style={{ width: 350, borderLeft: '1px solid #333', display: 'flex', flexDirection: 'column' }}>
-          <ChatPanel messages={chatMessages} onMessagesChange={setMessages} isAuthenticated={isAuthenticated}
-            onComplete={() => fetchTasks().then(setTasks).catch(() => {})} />
+        <div className="app-sidebar">
+          <ChatPanel messages={chatMessages} onMessagesChange={m => useStore.getState().setMessages(m)}
+            isAuthenticated={isAuthenticated} onComplete={refreshTasks} />
         </div>
       </div>
+
       <TaskModal task={selectedTask} isOpen={showModal} onClose={() => setShowModal(false)} onSave={handleTaskSave} allTasks={tasks} />
-      <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} onAuth={() => { setIsAuthenticated(true); setShowAuth(false); localStorage.setItem('gantt_auth', '1'); }} />
+      <AuthModal isOpen={showAuth} onClose={() => setShowAuth(false)} onAuth={handleAuth} />
       <CreateTaskModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} onCreate={handleCreateTask} />
-      <ContextMenu position={contextMenu ? { x: contextMenu.x, y: contextMenu.y } : null} 
-                   task={contextMenu?.task || null} onClose={() => setContextMenu(null)} onAction={handleContextAction} />
+      <ContextMenu position={contextMenu ? { x: contextMenu.x, y: contextMenu.y } : null}
+        task={contextMenu?.task || null} onClose={() => setContextMenu(null)} onAction={handleContextAction} />
       <ConfirmModal isOpen={showConfirmClear} onConfirm={handleClearAll} onCancel={() => setShowConfirmClear(false)} />
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} onSave={() => {}} />
       {notification && <Notification message={notification} />}

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { Task, ChatMessage } from '../types';
 
 interface LLMSettings {
@@ -28,23 +29,39 @@ interface State {
   setLastAddedTaskName: (name: string | null) => void;
 }
 
-export const useStore = create<State>(set => ({
-  tasks: [],
-  chatMessages: [],
-  selectedTask: null,
-  viewMode: 'gantt',
-  autoSave: true,
-  llmSettings: { baseUrl: '', apiKey: '', model: '' },
-  lastAddedTaskName: null,
-  setTasks: t => set({ tasks: t }),
-  addTask: t => set(s => ({ tasks: [...s.tasks, t] })),
-  updateTask: (id, data) => set(s => ({ tasks: s.tasks.map(t => t.id === id ? { ...t, ...data } : t) })),
-  deleteTask: id => set(s => ({ tasks: s.tasks.filter(t => t.id !== id) })),
-  addMessage: m => set(s => ({ chatMessages: [...s.chatMessages, m] })),
-  setMessages: m => set({ chatMessages: m }),
-  setSelectedTask: t => set({ selectedTask: t }),
-  setViewMode: m => set({ viewMode: m }),
-  setAutoSave: v => set({ autoSave: v }),
-  setLLMSettings: s => set({ llmSettings: s }),
-  setLastAddedTaskName: name => set({ lastAddedTaskName: name }),
-}));
+export const useStore = create<State>()(
+  persist(
+    set => ({
+      tasks: [],
+      chatMessages: [],
+      selectedTask: null,
+      viewMode: 'gantt',
+      autoSave: true,
+      llmSettings: { baseUrl: '', apiKey: '', model: '' },
+      lastAddedTaskName: null,
+      setTasks: t => set({ tasks: t }),
+      addTask: t => set(s => ({ tasks: [...s.tasks, t] })),
+      updateTask: (id, data) => set(s => ({
+        tasks: s.tasks.map(t => t.id === id ? { ...t, ...data } : t),
+      })),
+      deleteTask: id => set(s => ({ tasks: s.tasks.filter(t => t.id !== id) })),
+      addMessage: m => set(s => ({ chatMessages: [...s.chatMessages, m] })),
+      setMessages: m => set({ chatMessages: m }),
+      setSelectedTask: t => set({ selectedTask: t }),
+      setViewMode: m => set({ viewMode: m }),
+      setAutoSave: v => set({ autoSave: v }),
+      setLLMSettings: s => set({ llmSettings: s }),
+      setLastAddedTaskName: name => set({ lastAddedTaskName: name }),
+    }),
+    {
+      name: 'gantt_plan',
+      // Persist only tasks and settings — not UI state
+      partialize: state => ({
+        tasks: state.tasks,
+        viewMode: state.viewMode,
+        autoSave: state.autoSave,
+        llmSettings: state.llmSettings,
+      }),
+    }
+  )
+);

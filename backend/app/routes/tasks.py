@@ -35,8 +35,9 @@ def create_task(body: TaskCreate, store: PlanState = Depends(get_store)):
 
 @router.put("/{task_id}", response_model=Task)
 def update_task(task_id: str, body: TaskUpdate, store: PlanState = Depends(get_store)):
-    body.id = task_id
-    task = store.update_task(task_id, body)
+    # Don't mutate the Pydantic model — create a new one with the correct ID
+    update_data = TaskUpdate(id=task_id, **body.model_dump(exclude_unset=True, exclude={"id"}))
+    task = store.update_task(task_id, update_data)
     if task is None:
         raise HTTPException(404, "Task not found")
     return task

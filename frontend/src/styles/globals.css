@@ -37,138 +37,64 @@ a:hover { color: var(--accent-hover); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-/* === Gantt === */
-.gantt-container {
+/* === App Layout === */
+.app-root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app-main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.app-content {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+.app-sidebar {
+  width: 350px;
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+.empty-state {
+  color: #666;
+  text-align: center;
+  padding: 60px;
+  font-size: 14px;
+}
+
+.unsaved-warning {
+  font-size: 11px;
+  color: #F5A623;
+  text-align: center;
+  padding: 4px;
+}
+
+/* === Form Inputs === */
+.form-input {
   width: 100%;
-  overflow-x: auto;
-  padding: 1rem;
-}
-
-.gantt-container svg {
-  display: block;
-  min-width: 100%;
-}
-
-.gantt-bar {
-  fill: var(--accent);
-  rx: 4;
-  cursor: pointer;
-  transition: fill 0.15s;
-}
-
-.gantt-bar:hover { fill: var(--accent-hover); }
-
-.gantt-tooltip {
-  position: absolute;
-  background: var(--bg-card);
-  color: var(--text);
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  pointer-events: none;
-  z-index: 100;
-  box-shadow: 0 4px 12px var(--shadow);
-}
-
-/* === Kanban === */
-.kanban-board {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1rem;
-  padding: 1rem;
-}
-
-.kanban-column {
-  background: var(--bg-surface);
-  border-radius: 8px;
-  padding: 0.75rem;
-  min-height: 200px;
-  border: 2px dashed transparent;
-  transition: border-color 0.2s;
-}
-
-.kanban-column.drag-over {
-  border-color: var(--accent);
-}
-
-.kanban-card {
-  background: var(--bg-card);
-  border-radius: 6px;
-  padding: 0.75rem;
-  margin-bottom: 0.5rem;
-  cursor: grab;
-  transition: transform 0.15s, box-shadow 0.15s;
-}
-
-.kanban-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px var(--shadow);
-}
-
-.kanban-card.dragging {
-  opacity: 0.5;
-  transform: rotate(2deg);
-}
-
-/* === Chat === */
-.chat-container {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  max-height: 70vh;
-}
-
-.chat-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.chat-bubble {
-  max-width: 80%;
-  padding: 0.6rem 1rem;
-  border-radius: 12px;
-  font-size: 0.9rem;
-  line-height: 1.4;
-  word-wrap: break-word;
-}
-
-.chat-bubble.user {
-  align-self: flex-end;
-  background: var(--accent);
-  color: #fff;
-  border-bottom-right-radius: 4px;
-}
-
-.chat-bubble.assistant {
-  align-self: flex-start;
-  background: var(--bg-card);
-  border-bottom-left-radius: 4px;
-}
-
-.chat-input-row {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  border-top: 1px solid var(--border);
-}
-
-.chat-input-row input {
-  flex: 1;
-  background: var(--bg-surface);
+  padding: 8px 10px;
+  background: var(--bg);
   border: 1px solid var(--border);
+  border-radius: 4px;
   color: var(--text);
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  outline: none;
+  box-sizing: border-box;
+  font-size: 13px;
 }
 
-.chat-input-row input:focus {
+.form-input:focus {
   border-color: var(--accent);
+  outline: none;
 }
 
 /* === Modal === */
@@ -179,24 +105,32 @@ a:hover { color: var(--accent-hover); }
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 200;
+  z-index: 1000;
 }
 
 .modal-card {
   background: var(--bg-surface);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 1.5rem;
   width: 90%;
   max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  border: 1px solid var(--border);
   box-shadow: 0 8px 32px var(--shadow);
 }
 
 .modal-card h2 {
   margin-bottom: 1rem;
   font-size: 1.2rem;
+  color: var(--text);
 }
 
-/* === Utility === */
+.modal-card.auth-card {
+  width: 300px;
+}
+
+/* === Buttons === */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -206,7 +140,12 @@ a:hover { color: var(--accent-hover); }
   border-radius: 6px;
   font-size: 0.85rem;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-primary {
@@ -214,7 +153,7 @@ a:hover { color: var(--accent-hover); }
   color: #fff;
 }
 
-.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
 
 .btn-ghost {
   background: transparent;
@@ -222,9 +161,16 @@ a:hover { color: var(--accent-hover); }
   border: 1px solid var(--border);
 }
 
-.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+.btn-ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 
-/* === Header Buttons === */
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.btn-danger:hover:not(:disabled) { background: #c0392b; }
+
+/* Header-specific button styles */
 header .btn {
   padding: 6px 14px;
   font-size: 13px;
@@ -234,21 +180,6 @@ header .btn {
   white-space: nowrap;
 }
 
-header .btn-primary {
-  background: var(--accent);
-  color: #fff;
-}
-
-header .btn-primary:hover { background: var(--accent-hover); }
-
-header .btn-danger {
-  background: var(--danger);
-  color: #fff;
-}
-
-header .btn-danger:hover { background: #c0392b; }
-
-/* Header button separators */
 header .btn-sep {
   width: 1px;
   height: 24px;
@@ -256,3 +187,43 @@ header .btn-sep {
   margin: 0 4px;
   flex-shrink: 0;
 }
+
+/* === Notification === */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; transform: translateX(-50%) translateY(0); }
+  to { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+}
+
+.notification {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 20px;
+  background: #2a6a3e;
+  color: var(--text);
+  border-radius: 8px;
+  font-size: 13px;
+  box-shadow: 0 4px 12px var(--shadow);
+  z-index: 3000;
+  animation: fadeIn 0.2s ease, fadeOut 0.3s ease 2.7s forwards;
+}
+
+/* === Loading Spinner === */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* === Future: Gantt/Kanban/Chat CSS classes === */
+/* These classes are defined for future migration from inline styles:
+   .gantt-container, .gantt-bar, .gantt-tooltip
+   .kanban-board, .kanban-column, .kanban-card
+   .chat-container, .chat-messages, .chat-bubble
+   To migrate: replace inline style objects in components with these classes.
+*/

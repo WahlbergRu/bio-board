@@ -70,8 +70,9 @@ async def chat(
                     suggestions_payload = json.dumps({
                         "type": "suggestions",
                         "note": parsed.get("note", ""),
+                        "error": result_text,
                         "commands": parsed["suggestions"],
-                    })
+                    }, ensure_ascii=False)
                     yield f"data: {suggestions_payload}\n\n"
                 else:
                     # Not a suggestions JSON, return as text

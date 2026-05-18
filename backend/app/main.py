@@ -2,27 +2,42 @@
 
 import os
 import time
-import hmac
-import hashlib
 import json
-import base64
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import jwt
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from passlib.context import CryptContext
 
 from app.llm_agent import LLMAgent
 from app.mcp_server import get_mcp_app
-from app.models import SeedTask, TokenResponse, LoginRequest
+from app.models import TokenResponse, LoginRequest
 from app.store import PlanState
 from app.routes import tasks, chat, excel, plan, settings
 
-DATA_DIR = Path("plan.json").parent
-JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-change-in-production")
-USERS = {os.getenv("ADMIN_USER", "admin"): os.getenv("ADMIN_PASS", "admin")}
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Simple rate limiter
+DATA_DIR = Path(os.getenv("DATA_DIR", "/app/data"))
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    raise ValueError("JWT_SECRET environment variable is required")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRY = 86400  # 24 hours
+
+# Default admin credentials — hashed at startup
+_ADMIN_USER = os.getenv("ADMIN_USER", "admin")
+_ADMIN_PASS = os.getenv("ADMIN_PASS", "admin")
+
+# CORS — configurable, restrict in production
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
+if CORS_ORIGINS == ["*"]:
+    ALLOW_ORIGINS = ["*"]
+else:
+    ALLOW_ORIGINS = [o.strip() for o in CORS_ORIGINS if o.strip()]
+
+# Simple in-memory rate limiter
 rate_limits: dict[str, list[float]] = {}
 RATE_LIMIT = 30  # requests per minute
 RATE_WINDOW = 60
@@ -30,53 +45,43 @@ RATE_WINDOW = 60
 
 def _check_rate(ip: str) -> bool:
     now = time.time()
-    history = rate_limits.get(ip, [])
-    history = [t for t in history if now - t < RATE_WINDOW]
-    rate_limits[ip] = history
+    history = [t for t in rate_limits.get(ip, []) if now - t < RATE_WINDOW]
     if len(history) >= RATE_LIMIT:
         return False
     history.append(now)
+    rate_limits[ip] = history
     return True
 
 
 def _make_token(user: str) -> str:
-    payload_b64 = base64.urlsafe_b64encode(
-        json.dumps({"user": user, "exp": int(time.time() + 86400)}).encode()
-    ).decode().rstrip("=")
-    sig = hmac.new(JWT_SECRET.encode(), payload_b64.encode(), hashlib.sha256).hexdigest()
-    return f"{payload_b64}.{sig}"
+    payload = {"user": user, "exp": int(time.time()) + JWT_EXPIRY, "iat": int(time.time())}
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
 def _verify_token(token: str) -> dict | None:
     try:
-        payload_b64, sig = token.rsplit(".", 1)
-        expected = hmac.new(JWT_SECRET.encode(), payload_b64.encode(), hashlib.sha256).hexdigest()
-        if sig != expected:
-            return None
-        padded = payload_b64 + "=" * (4 - len(payload_b64) % 4)
-        data = json.loads(base64.urlsafe_b64decode(padded))
-        if data.get("exp", 0) < time.time():
-            return None
-        return data
-    except Exception:
+        return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
         return None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    store: PlanState = app.state.store
-    if not store.tasks:
-        store.seed(_default_seed())
     yield
 
 
 app = FastAPI(title="AI Gantt Planner API", lifespan=lifespan)
 
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
-                   allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOW_ORIGINS,
+    allow_credentials=ALLOW_ORIGINS == ["*"],
+    allow_methods=["*"] if ALLOW_ORIGINS == ["*"] else ["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["*"],
+)
 
-store = PlanState()
+store = PlanState(data_dir=DATA_DIR)
 app.state.store = store
 app.state.llm = LLMAgent(
     api_key=os.getenv("OPENAI_API_KEY") or "sk-placeholder",
@@ -87,16 +92,18 @@ app.state.llm = LLMAgent(
 
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
-    ip = request.client.host if request.client else "unknown"
-    if request.url.path.startswith("/api/") and not _check_rate(ip):
-        from fastapi.responses import JSONResponse
-        return JSONResponse({"error": "Rate limit exceeded"}, status_code=429)
+    if request.url.path.startswith("/api/"):
+        ip = request.client.host if request.client else "unknown"
+        if not _check_rate(ip):
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"error": "Rate limit exceeded"}, status_code=429)
     return await call_next(request)
 
 
 @app.post("/api/auth/login", response_model=TokenResponse)
 async def login(req: LoginRequest):
-    if USERS.get(req.username) == req.password:
+    # In production, check against hashed passwords from DB
+    if req.username == _ADMIN_USER and pwd_context.verify(req.password, app.state.admin_hash):
         return TokenResponse(access_token=_make_token(req.username))
     raise HTTPException(401, "Invalid credentials")
 
@@ -113,6 +120,7 @@ async def get_me(request: Request):
 
 @app.websocket("/ws/notifications")
 async def ws_notifications(websocket: WebSocket):
+    # TODO: add auth check before accepting
     await websocket.accept()
     try:
         while True:
@@ -137,12 +145,6 @@ async def health():
     return {"status": "ok", "tasks": len(store.tasks)}
 
 
-def _default_seed() -> list[SeedTask]:
-    return [
-        SeedTask(name="Project Kickoff", description="Define scope, team, and milestones",
-                 start="2026-05-15", end="2026-05-20", progress=0, type="milestone", assignee="PM"),
-        SeedTask(name="Requirements Gathering", description="Collect and document all requirements",
-                 start="2026-05-21", end="2026-06-10", progress=0, type="task", assignee="Analyst", dependencies=["1"]),
-        SeedTask(name="Architecture Design", description="Design system architecture and tech stack",
-                 start="2026-06-11", end="2026-06-25", progress=0, type="task", assignee="Architect", dependencies=["2"]),
-    ]
+
+# Hash admin password at module load time
+app.state.admin_hash = pwd_context.hash(_ADMIN_PASS)

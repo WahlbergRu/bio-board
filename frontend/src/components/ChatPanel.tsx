@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { ChatMessage } from '../types';
 import { sendChat } from '../api/chat';
+import { parseSSEStream, tryParseSuggestionsJSON } from '../api/sse';
 import { ui } from '../i18n';
 import { useStore } from '../store';
 import CommandOverlay from './CommandOverlay';
+import SuggestionsPanel from './SuggestionsPanel';
 
 interface Props {
   messages: ChatMessage[];
@@ -12,31 +14,25 @@ interface Props {
   onComplete?: () => void;
 }
 
-interface Suggestion {
-  label: string;
-  command: string;
-}
-
 interface SuggestionsState {
   note: string;
-  commands: Suggestion[];
+  error: string;
+  commands: Array<{ label: string; command: string }>;
+  executed: Set<string>;
 }
 
 const MAX_VISIBLE = 100;
 
-// Extract task name from "добавь задачу X" or "создай X"
 function extractCreatedTaskName(msg: string): string | null {
   const m = msg.match(/(?:добавь|создай|create|new)\s+(?:задач[уа]?\s+)?(\S+)/i);
   return m ? m[1] : null;
 }
 
-// Extract created task name from server response: "Создал задачу 'X'"
 function extractCreatedFromResponse(response: string): string | null {
   const m = response.match(/Создал задачу '([^']+)'/);
   return m ? m[1] : null;
 }
 
-// Extract copied task name from server response: "Скопировал 'X' -> 'Y'"
 function extractCopiedTaskName(response: string): string | null {
   const m = response.match(/Скопировал\s+'[^']+'\s*->\s*'([^']+)'/);
   return m ? m[1] : null;
@@ -51,16 +47,23 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
   const [suggestions, setSuggestions] = useState<SuggestionsState | null>(null);
   const [showCommands, setShowCommands] = useState(false);
   const [commandFilter, setCommandFilter] = useState('');
+  const [dots, setDots] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (!loading) { setDots(''); return; }
+    const interval = setInterval(() => {
+      setDots(prev => prev.length >= 3 ? '' : prev + '.');
+    }, 500);
+    return () => clearInterval(interval);
+  }, [loading]);
+
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading, suggestions]);
 
-  // Detect "/" trigger
   const handleInputChange = useCallback((value: string) => {
     setInput(value);
-    const slashIdx = value.indexOf('/');
-    if (slashIdx === 0) {
+    if (value.indexOf('/') === 0) {
       setCommandFilter(value.slice(1));
       setShowCommands(true);
     } else {
@@ -74,12 +77,8 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
     setShowCommands(false);
     setCommandFilter('');
     inputRef.current?.focus();
-    // Position cursor at the placeholder location
     requestAnimationFrame(() => {
-      const el = inputRef.current;
-      if (el) {
-        el.setSelectionRange(cursorPos, cursorPos);
-      }
+      inputRef.current?.setSelectionRange(cursorPos, cursorPos);
     });
   }, []);
 
@@ -103,11 +102,8 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
     const msg = overrideMsg ?? input.trim();
     if (!msg || loading || !isAuthenticated) return;
 
-    // Track last added task name
     const createdName = extractCreatedTaskName(msg);
-    if (createdName) {
-      setLastAddedTaskName(createdName);
-    }
+    if (createdName) setLastAddedTaskName(createdName);
 
     setShowCommands(false);
     setCommandFilter('');
@@ -118,7 +114,7 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
       setInput('');
     }
     setLoading(true);
-    setSuggestions(null);
+    if (!overrideMsg) setSuggestions(null);
 
     const assistantMsg: ChatMessage = { role: 'assistant', content: '', timestamp: new Date().toISOString() };
     const updated = [...newHistory, assistantMsg];
@@ -126,81 +122,60 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
 
     try {
       let fullText = '';
-      let parsedSuggestions: SuggestionsState | null = null;
-
       for await (const chunk of sendChat(msg, newHistory.slice(-MAX_VISIBLE))) {
         fullText += chunk;
       }
 
-      // Clean SSE format: remove "data: " prefixes and "[DONE]" markers
-      const cleanText = fullText
-        .split('\n')
-        .map(line => {
-          const trimmed = line.trim();
-          if (trimmed.startsWith('data: ')) return trimmed.slice(6);
-          if (trimmed === 'data:') return '';
-          if (trimmed === '[DONE]') return '';
-          return trimmed;
-        })
-        .filter(Boolean)
-        .join('');
+      // Parse SSE
+      const dataParts = parseSSEStream(fullText);
+      const rawText = dataParts.join('') || fullText.replace(/^data: /gm, '').replace(/\[DONE\]/g, '').trim();
 
-      try {
-        if (cleanText.startsWith('{')) {
-          const data = JSON.parse(cleanText);
-          if (data.type === 'suggestions') {
-            parsedSuggestions = {
-              note: data.note,
-              commands: data.commands,
-            };
-            const newArr = updated.map((m, i) =>
-              i === updated.length - 1 ? { ...m, content: parsedSuggestions!.note || 'Выберите команду:' } : m
-            );
-            onMessagesChange(newArr);
-          } else {
-            const newArr = updated.map((m, i) =>
-              i === updated.length - 1 ? { ...m, content: cleanText } : m
-            );
-            onMessagesChange(newArr);
-          }
-        } else {
-          const newArr = updated.map((m, i) =>
-            i === updated.length - 1 ? { ...m, content: cleanText } : m
-          );
-          onMessagesChange(newArr);
-        }
-      } catch {
+      // Try suggestions JSON
+      const parsedSuggestions = tryParseSuggestionsJSON(rawText);
+      if (parsedSuggestions) {
+        setSuggestions({
+          note: parsedSuggestions.note,
+          error: parsedSuggestions.error,
+          commands: parsedSuggestions.commands,
+          executed: new Set(),
+        });
         const newArr = updated.map((m, i) =>
-          i === updated.length - 1 ? { ...m, content: cleanText || fullText } : m
+          i === updated.length - 1 ? { ...m, content: parsedSuggestions.note || parsedSuggestions.error } : m
+        );
+        onMessagesChange(newArr);
+      } else {
+        if (!suggestions) setSuggestions(null);
+        const newArr = updated.map((m, i) =>
+          i === updated.length - 1 ? { ...m, content: rawText || fullText } : m
         );
         onMessagesChange(newArr);
       }
 
-      if (parsedSuggestions) {
-        setSuggestions(parsedSuggestions);
-      }
-
-      // Parse server response for copy/create to update lastAddedTaskName
+      // Update lastAddedTaskName from response
       const copiedName = extractCopiedTaskName(fullText);
       if (copiedName) {
         setLastAddedTaskName(copiedName);
       } else {
         const createdFromResponse = extractCreatedFromResponse(fullText);
-        if (createdFromResponse) {
-          setLastAddedTaskName(createdFromResponse);
-        }
+        if (createdFromResponse) setLastAddedTaskName(createdFromResponse);
       }
     } catch {
+      setSuggestions(null);
       const errArr = updated.map((m, i) => i === updated.length - 1 ? { ...m, content: '⚠️ ' + ui.llmError } : m);
       onMessagesChange(errArr);
     } finally {
       setLoading(false);
       onComplete?.();
     }
-  }, [input, loading, isAuthenticated, messages, onMessagesChange, onComplete, setLastAddedTaskName]);
+  }, [input, loading, isAuthenticated, messages, onMessagesChange, onComplete, setLastAddedTaskName, suggestions]);
 
   const handleSuggestionClick = useCallback((command: string) => () => {
-    setSuggestions(null);
+    setSuggestions(prev => {
+      if (!prev) return null;
+      const next = new Set(prev.executed);
+      next.add(command);
+      return { ...prev, executed: next };
+    });
     handleSend(command);
   }, [handleSend]);
 
@@ -213,40 +188,44 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
         {offset > 0 ? `${ui.lastMessages} (${offset} скрыто)` : ui.chatHistory}
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {visible.map((m, i) => (
-          <div key={i} style={{
-            alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-            maxWidth: '85%', padding: '8px 12px', borderRadius: 12,
-            background: m.role === 'user' ? '#4A90D9' : '#2a2a4e',
-            color: '#eee', fontSize: 13, lineHeight: 1.4,
-          }}>
-            <div dangerouslySetInnerHTML={{ __html: m.content.replace(/\n/g, '<br/>') }} />
-          </div>
-        ))}
+        {visible.map((m, i) => {
+          if (m.role === 'assistant' && !m.content) return null;
+          return (
+            <div key={i} style={{
+              alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+              maxWidth: '85%', padding: '8px 12px', borderRadius: 12,
+              background: m.role === 'user' ? '#4A90D9' : '#2a2a4e',
+              color: '#eee', fontSize: 13, lineHeight: 1.4,
+            }}>
+              <div dangerouslySetInnerHTML={{ __html: m.content.replace(/\n/g, '<br/>') }} />
+            </div>
+          );
+        })}
         {suggestions && (
+          <SuggestionsPanel
+            note={suggestions.note}
+            error={suggestions.error}
+            commands={suggestions.commands}
+            executed={suggestions.executed}
+            onExecute={handleSuggestionClick}
+          />
+        )}
+        {loading && (
           <div style={{
-            display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 12px',
-            background: '#1a1a3a', borderRadius: 12, border: '1px solid #444',
+            display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+            background: '#1a1a3a', borderRadius: 12, border: '1px solid #333',
             maxWidth: '85%', alignSelf: 'flex-start',
           }}>
-            {suggestions.commands.map((s, idx) => (
-              <button
-                key={idx}
-                onClick={handleSuggestionClick(s.command)}
-                style={{
-                  padding: '8px 16px', background: '#4A90D9', border: 'none',
-                  borderRadius: 8, color: '#fff', fontSize: 13, cursor: 'pointer',
-                  textAlign: 'left', transition: 'background 0.2s',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#357ABD')}
-                onMouseLeave={e => (e.currentTarget.style.background = '#4A90D9')}
-              >
-                {s.label}
-              </button>
-            ))}
+            <div style={{ position: 'relative', width: 18, height: 18 }}>
+              <div style={{
+                position: 'absolute', inset: 0,
+                border: '2px solid transparent', borderTop: '2px solid #4A90D9',
+                borderRadius: '50%', animation: 'spin 0.8s linear infinite',
+              }} />
+            </div>
+            <span style={{ color: '#ccc', fontSize: 13 }}>Обрабатываю{dots}</span>
           </div>
         )}
-        {loading && <div style={{ color: '#666', fontSize: 12, padding: '4px 12px' }}>▋</div>}
         <div ref={endRef} />
       </div>
       <div style={{ padding: '8px 12px', borderTop: '1px solid #333', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -278,15 +257,13 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
             onKeyDown={e => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                // If overlay is open, let CommandOverlay handle Enter
-                if (!showCommands) {
-                  handleSend();
-                }
+                if (!showCommands) handleSend();
               }
             }}
             placeholder={showCommands ? ui.chatPlaceholderCommand : ui.chatPlaceholder}
             disabled={loading || !isAuthenticated}
-            style={{ flex: 1, padding: '6px 10px', background: '#2a2a4e', border: '1px solid #444', borderRadius: 6, color: '#eee', fontSize: 13 }}
+            className="form-input"
+            style={{ flex: 1 }}
           />
           <button onClick={() => handleSend()} disabled={loading || !input.trim() || !isAuthenticated} className="btn btn-primary" style={{ padding: '6px 14px' }}>
             {loading ? ui.sending : '→'}

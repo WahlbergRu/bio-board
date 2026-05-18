@@ -31,8 +31,8 @@ export default function GanttView({ tasks, onTaskClick, onTaskUpdate, onContextM
   }, [render]);
 
   return (
-    <div ref={containerRef} style={{ width: '100%', height: '100%', overflow: 'auto', position: 'relative' }}>
-      <svg ref={svgRef} style={{ display: 'block' }} />
+    <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
+      <svg ref={svgRef} style={{ display: 'block', width: '100%', height: '100%' }} />
     </div>
   );
 }

@@ -2,16 +2,16 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir \
-    fastapi>=0.115.0 \
-    uvicorn>=0.30.0 \
-    mcp>=1.0.0 \
-    openai>=1.40.0 \
-    openpyxl>=3.1.0 \
-    pydantic>=2.0.0 \
-    python-multipart>=0.0.9
+# Install dependencies first (better layer caching)
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir -e ".[test]"
 
+# Copy application code
 COPY app/ app/
+
+# Create data directory for plan.json
+RUN mkdir -p /app/data && chmod 777 /app/data
+ENV DATA_DIR=/app/data
 
 EXPOSE 8000
 

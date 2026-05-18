@@ -21,10 +21,56 @@ class LLMAgent:
             "OPENAI_BASE_URL", "https://api.openai.com/v1"
         )
         self.model = model or os.getenv("OPENAI_MODEL", "kimi-k2.5")
+        self._create_client()
+
+    def _create_client(self) -> None:
         self.client = AsyncOpenAI(
             api_key=self.api_key,
             base_url=self.base_url,
         )
+
+    # ── Tool call parsing (shared between methods) ──────────────
+
+    @staticmethod
+    def _parse_tool_calls(delta_tool_calls) -> tuple[dict[int, dict], list[str]]:
+        """Parse streaming tool calls from LLM delta.
+        
+        Returns (tool_calls_dict, text_parts) — accumulated state.
+        Call this for each chunk's delta.tool_calls.
+        """
+        tool_calls: dict[int, dict] = {}
+        text_parts: list[str] = []
+
+        for tc in delta_tool_calls:
+            idx = tc.index
+            if idx not in tool_calls:
+                tool_calls[idx] = {"id": tc.id, "function": {"name": "", "arguments": ""}}
+            if tc.id:
+                tool_calls[idx]["id"] = tc.id
+            if tc.function:
+                if tc.function.name:
+                    tool_calls[idx]["function"]["name"] += tc.function.name
+                if tc.function.arguments:
+                    tool_calls[idx]["function"]["arguments"] += tc.function.arguments
+
+        return tool_calls, text_parts
+
+    @staticmethod
+    def _merge_tool_calls(existing: dict[int, dict], new: dict[int, dict]) -> dict[int, dict]:
+        """Merge newly parsed tool calls into existing dict."""
+        for idx, tc in new.items():
+            if idx not in existing:
+                existing[idx] = tc
+            else:
+                if tc["id"]:
+                    existing[idx]["id"] = tc["id"]
+                if tc["function"]["name"]:
+                    existing[idx]["function"]["name"] += tc["function"]["name"]
+                if tc["function"]["arguments"]:
+                    existing[idx]["function"]["arguments"] += tc["function"]["arguments"]
+        return existing
+
+    # ── Chat methods ─────────────────────────────────────────────
 
     async def chat(
         self,
@@ -57,24 +103,25 @@ class LLMAgent:
                         text_parts.append(delta.content)
                         yield delta.content
                     if delta.tool_calls:
-                        for tc in delta.tool_calls:
-                            idx = tc.index
-                            if idx not in tool_calls:
-                                tool_calls[idx] = {"id": tc.id, "function": {"name": "", "arguments": ""}}
-                            if tc.id:
-                                tool_calls[idx]["id"] = tc.id
-                            if tc.function:
-                                if tc.function.name:
-                                    tool_calls[idx]["function"]["name"] += tc.function.name
-                                if tc.function.arguments:
-                                    tool_calls[idx]["function"]["arguments"] += tc.function.arguments
+                        parsed, _ = self._parse_tool_calls(delta.tool_calls)
+                        tool_calls = self._merge_tool_calls(tool_calls, parsed)
 
                 if not tool_calls:
                     return
-                all_messages.append({"role": "assistant", "content": "".join(text_parts) or None,
-                                     "tool_calls": [{"id": tc["id"], "type": "function", "function": tc["function"]} for tc in tool_calls.values()]})
+                all_messages.append({
+                    "role": "assistant",
+                    "content": "".join(text_parts) or None,
+                    "tool_calls": [
+                        {"id": tc["id"], "type": "function", "function": tc["function"]}
+                        for tc in tool_calls.values()
+                    ],
+                })
                 for tc in tool_calls.values():
-                    all_messages.append({"role": "tool", "tool_call_id": tc["id"], "content": "ok"})
+                    all_messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc["id"],
+                        "content": "ok",
+                    })
 
         except Exception as exc:
             yield f"\n[LLM Error] {exc}"
@@ -92,7 +139,6 @@ class LLMAgent:
             "Translate their intent into executable commands.\n\n"
             "Available fast commands:\n"
             "- 'добавь задачу {name}' — create task\n"
-            "- '{A} связана с {B}' — link tasks\n"
             "- '{A} связана с {B}' — link tasks\n"
             "- '{name} сдвинь на {N}' — shift task\n"
             "- '{name} перенеси на {YYYY-MM-DD}' — move to date\n"
@@ -163,17 +209,8 @@ class LLMAgent:
                     text_parts.append(delta.content)
                     yield delta.content
                 if delta.tool_calls:
-                    for tc in delta.tool_calls:
-                        idx = tc.index
-                        if idx not in tool_calls:
-                            tool_calls[idx] = {"id": tc.id, "function": {"name": "", "arguments": ""}}
-                        if tc.id:
-                            tool_calls[idx]["id"] = tc.id
-                        if tc.function:
-                            if tc.function.name:
-                                tool_calls[idx]["function"]["name"] += tc.function.name
-                            if tc.function.arguments:
-                                tool_calls[idx]["function"]["arguments"] += tc.function.arguments
+                    parsed, _ = self._parse_tool_calls(delta.tool_calls)
+                    tool_calls = self._merge_tool_calls(tool_calls, parsed)
 
             if not tool_calls:
                 return
@@ -210,7 +247,6 @@ class LLMAgent:
                     "content": result,
                 })
 
-            # Yield a newline between turns for readability
             if has_content and text_parts and not text_parts[-1].endswith("\n"):
                 yield "\n"
             if tools_called:
@@ -229,10 +265,7 @@ class LLMAgent:
             self.base_url = base_url
         if model is not None:
             self.model = model
-        self.client = AsyncOpenAI(
-            api_key=self.api_key,
-            base_url=self.base_url,
-        )
+        self._create_client()
 
     @staticmethod
     def _build_system_prompt(plan_context: str) -> str:
@@ -250,10 +283,6 @@ class LLMAgent:
             "- Ensure start_date <= end_date for every task\n"
             "- Respond in Russian (same language as user)\n"
             "- Be concise. After making changes, summarize what was done in Russian.\n\n"
-            "Examples:\n"
-            "- 'Добавь задачу Тест' → create_task(name='Тест', start_date=today, end_date=today+3d)\n"
-            "- 'Удали задачу 5' → delete_task(id='5')\n"
-            "- 'Поменяй дизайнера с архитектором' → update_task(id of System Design, assignee='Designer'), update_task(id of UI/UX Design, assignee='Architect')\n\n"
             f"Current plan state:\n{plan_context}"
         )
 

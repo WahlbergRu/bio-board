@@ -1,10 +1,10 @@
 """Excel import/export routes."""
 
 from datetime import datetime, timedelta
-from pathlib import Path
+from io import BytesIO
 
 from fastapi import APIRouter, Depends, Request, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 
 from app import excel_service
 from app.models import TaskCreate
@@ -56,17 +56,11 @@ async def upload_excel(file: UploadFile, store: PlanState = Depends(get_store)):
 
 @router.get("/export")
 def export_excel(store: PlanState = Depends(get_store)):
-    import tempfile
     tasks = [t.model_dump() for t in store.get_all_tasks()]
     xlsx_bytes = excel_service.export_excel(tasks)
 
-    fd, tmp_path = tempfile.mkstemp(suffix=".xlsx", prefix="gantt_export_")
-    import os
-    os.write(fd, xlsx_bytes)
-    os.close(fd)
-
-    return FileResponse(
-        path=tmp_path,
+    return Response(
+        content=xlsx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename="gantt_plan.xlsx",
+        headers={"Content-Disposition": "attachment; filename=gantt_plan.xlsx"},
     )

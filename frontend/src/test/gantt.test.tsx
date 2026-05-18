@@ -11,10 +11,11 @@ const { mockD3, mockObserver } = vi.hoisted(() => {
   const sel = {
     selectAll: vi.fn(() => sel), remove: vi.fn(() => sel), append: vi.fn(() => sel),
     attr: vi.fn(function () { return sel; }), style: vi.fn(() => sel), text: vi.fn(() => sel),
-    call: vi.fn(() => sel), on: vi.fn(() => sel), data: vi.fn(() => sel), join: vi.fn(() => sel),
-    select: vi.fn(() => sel), filter: vi.fn(() => sel), each: vi.fn(() => sel),
-    node: vi.fn(() => ({ getBoundingClientRect: () => ({ width: 800, height: 600 }) })),
-    datum: vi.fn(() => sel), insert: vi.fn(() => sel), transition: vi.fn(() => sel), interrupt: vi.fn(() => sel),
+    call: vi.fn(function () { return sel; }), on: vi.fn(() => sel), data: vi.fn(() => sel), 
+    join: vi.fn(() => sel), select: vi.fn(() => sel), filter: vi.fn(() => sel), 
+    each: vi.fn(() => sel), node: vi.fn(() => ({ getBoundingClientRect: () => ({ width: 800, height: 600 }) })),
+    datum: vi.fn(() => sel), insert: vi.fn(() => sel), transition: vi.fn(() => sel), 
+    interrupt: vi.fn(() => sel), empty: vi.fn(() => false), lower: vi.fn(() => sel),
   };
   const dragObj = { on: vi.fn(function () { return dragObj; }) };
   const dates = [new Date('2026-01-01'), new Date('2026-01-05'), new Date('2026-01-10')];
@@ -26,14 +27,23 @@ const { mockD3, mockObserver } = vi.hoisted(() => {
   yFn.step = () => 30;
   const obs = { observe: vi.fn(), disconnect: vi.fn(), unobserve: vi.fn() };
 
+  // Zoom mock with proper method chaining
+  const zoomOnMock = vi.fn(() => {});
+  const zoomFilterMock = vi.fn(() => ({ on: zoomOnMock }));
+  const zoomScaleExtentMock = vi.fn(() => ({ filter: zoomFilterMock, on: zoomOnMock }));
+  const zoomMock = vi.fn(() => ({ scaleExtent: zoomScaleExtentMock }));
+
   return {
     mockD3: {
       select: vi.fn(() => sel), drag: vi.fn(() => dragObj),
-      zoom: vi.fn(() => ({ scaleExtent: vi.fn(() => ({ on: vi.fn(() => {}) })) })),
+      zoom: zoomMock,
+      zoomIdentity: { translate: vi.fn(() => ({ scale: vi.fn(() => ({})) })), scale: vi.fn(() => ({})) },
       scaleTime: vi.fn(() => ({ domain: vi.fn(() => ({ range: vi.fn(() => xFn) })) })),
       scaleBand: vi.fn(() => ({ domain: vi.fn(() => ({ range: vi.fn(() => ({ padding: vi.fn(() => yFn) })) })) })),
       extent: vi.fn((arr: number[]) => [Math.min(...arr), Math.max(...arr)]),
       timeDay: { offset: vi.fn((d: Date, n: number) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; }) },
+      timeWeek: { offset: vi.fn((d: Date, n: number) => { const r = new Date(d); r.setDate(r.getDate() + n * 7); return r; }) },
+      timeMonth: { offset: vi.fn((d: Date, n: number) => { const r = new Date(d); r.setMonth(r.getMonth() + n); return r; }) },
       timeFormat: vi.fn(() => (_d: Date) => 'Jan 01'),
       axisTop: vi.fn(() => ({ ticks: vi.fn(() => ({ tickFormat: vi.fn(() => {}) })) })),
       color: vi.fn(() => ({ darker: vi.fn(() => ({ toString: () => '#333' })) })),

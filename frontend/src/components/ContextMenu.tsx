@@ -1,10 +1,5 @@
 import { useRef, useEffect } from 'react';
-
-interface Task {
-  id: string;
-  name: string;
-  assignee: string;
-}
+import type { Task } from '../types';
 
 interface Props {
   position: { x: number; y: number } | null;

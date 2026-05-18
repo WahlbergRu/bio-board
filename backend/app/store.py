@@ -1,15 +1,18 @@
 """In-memory state store with JSON persistence."""
 
 import json
+import os
 from pathlib import Path
 
 from app.models import Task, TaskCreate, TaskUpdate, SeedTask
 
+_DATA_DIR = Path(os.getenv("DATA_DIR", "."))
+
 
 class PlanState:
-    _file_path: Path = Path("plan.json")
-
-    def __init__(self) -> None:
+    def __init__(self, data_dir: Path | None = None) -> None:
+        self._file_path = (data_dir or _DATA_DIR) / "plan.json"
+        self._counter = 0
         self.tasks: dict[str, Task] = {}
         self._load()
 
@@ -19,6 +22,10 @@ class PlanState:
         if self._file_path.exists():
             raw = json.loads(self._file_path.read_text(encoding="utf-8"))
             self.tasks = {k: Task.model_validate(v) for k, v in raw.items()}
+            # Restore counter from max existing ID
+            if self.tasks:
+                numeric_ids = [int(k) for k in self.tasks if k.isdigit()]
+                self._counter = max(numeric_ids) if numeric_ids else 0
 
     def save(self) -> None:
         self._file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -40,7 +47,7 @@ class PlanState:
     def create_task(self, data: TaskCreate) -> Task | str:
         if len(self.tasks) >= self.MAX_TASKS:
             return f"error: Maximum {self.MAX_TASKS} tasks reached"
-        tid = self._next_id()
+        tid = self.generate_id()
         task_data = data.model_dump()
         # Resolve dependency names to IDs
         if task_data.get("dependencies"):
@@ -68,7 +75,7 @@ class PlanState:
         if task_id not in self.tasks:
             return False
         del self.tasks[task_id]
-        # remove dangling deps
+        # Remove dangling deps
         for t in self.tasks.values():
             if task_id in t.dependencies:
                 t.dependencies.remove(task_id)
@@ -130,8 +137,9 @@ class PlanState:
 
     def seed(self, seed_tasks: list[SeedTask]) -> None:
         self.tasks.clear()
+        self._counter = 0
         for st in seed_tasks:
-            tid = self._next_id()
+            tid = self.generate_id()
             self.tasks[tid] = Task(
                 id=tid,
                 name=st.name,
@@ -159,12 +167,10 @@ class PlanState:
         """Resolve dependency names/IDs to IDs. Already-ID values pass through."""
         resolved = []
         for d in deps:
-            # If it looks like an ID (numeric string), keep it
             if d.isdigit():
                 if d in self.tasks:
                     resolved.append(d)
             else:
-                # Treat as task name → resolve to ID
                 rid = self._resolve_name_to_id(d)
                 if rid:
                     resolved.append(rid)
@@ -172,7 +178,7 @@ class PlanState:
 
     # ── id generation ────────────────────────────────────────────
 
-    def _next_id(self) -> str:
-        if not self.tasks:
-            return "1"
-        return str(max(int(k) for k in self.tasks) + 1)
+    def generate_id(self) -> str:
+        """Generate next sequential ID using an atomic counter."""
+        self._counter += 1
+        return str(self._counter)

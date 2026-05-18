@@ -9,6 +9,7 @@ export default defineConfig({
     setupFiles: ["src/test/setup.ts"],
   },
   server: {
+    host: '0.0.0.0',
     port: 8401,
     proxy: {
       "/api": { target: "http://localhost:8400", changeOrigin: true },

@@ -94,12 +94,19 @@ def parse_excel(file_bytes: bytes) -> list[dict]:
     return result
 
 
+def _resolve_pred_ids_to_names(tasks: list[dict]) -> dict[str, str]:
+    """Build mapping from task ID to task name."""
+    return {t.get("id", ""): t.get("name", "") for t in tasks if t.get("id")}
+
+
 def export_excel(tasks: list[dict]) -> bytes:
     """Export task dicts to xlsx bytes.
 
-    Expected task keys: name, description, assignee, start_date, end_date,
-    predecessors (list of str). Duration is calculated from dates.
+    Predecessors are written as task names (not IDs) so they can be
+    resolved on re-import regardless of task ID assignment.
     """
+    id_to_name = _resolve_pred_ids_to_names(tasks)
+
     wb = Workbook()
     ws = wb.active
     ws.title = "План"
@@ -111,7 +118,14 @@ def export_excel(tasks: list[dict]) -> bytes:
         start = t.get("start_date", "")
         end = t.get("end_date", "")
         duration = _calculate_duration(start, end) if start and end else t.get("duration", 0)
-        preds = ";".join(t.get("predecessors", []))
+
+        # Support both 'predecessors' (import format) and 'dependencies' (Task model)
+        raw_preds = t.get("predecessors") or t.get("dependencies") or []
+        pred_names = []
+        for p in raw_preds:
+            name = id_to_name.get(p)
+            pred_names.append(name if name else p)
+        preds = ";".join(pred_names)
 
         ws.append([
             t.get("name", ""),

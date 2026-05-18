@@ -6,7 +6,12 @@ export async function* sendChat(
 ): AsyncGenerator<string, void, unknown> {
   const res = await fetch('/api/chat/', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(localStorage.getItem('gantt_token')
+        ? { Authorization: `Bearer ${localStorage.getItem('gantt_token')}` }
+        : {}),
+    },
     body: JSON.stringify({ message, history }),
   });
 
