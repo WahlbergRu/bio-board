@@ -1,43 +1,21 @@
 # Roadmap to Production
 
-## Technical Debts — Status Update
+## Technical Debts
 
-| Area | Shortcut | Impact | Status |
-|------|----------|--------|--------|
-| Storage | In-memory store + JSON file | Data loss on concurrent writes, no ACID | ⚠️ Partially done — JSON persistence + auto-save implemented |
-| Auth | Basic JWT only | No OAuth2/Keycloak, no multi-user roles | ⚠️ Partially done — JWT login with hashed passwords implemented |
-| Validation | No date range checks | End before start possible | ⚠️ Partially done — format/type/cycle checks done, date logic missing |
-| Pagination | None | All tasks in one response | ❌ Not done |
-| Frontend | No error boundaries | White screen on JS error | ❌ Not done |
-| E2E Testing | None | Regressions undetected | ❌ Not done |
-| CORS | Configurable but defaults to `*` | Open to any origin in default config | ⚠️ Partially done — `CORS_ORIGINS` env var supported |
-| Secrets | Env vars only | Key exposure risk | ❌ Not done |
-| WebSocket | Echo-only endpoint | No real real-time sync | ⚠️ Partially done — endpoint exists, no broadcast logic |
-| Logging | Python stdlib print only | No structured logs, no ELK | ❌ Not done |
-| Monitoring | No metrics | Blind to errors/performance | ❌ Not done |
-| CI/CD | Manual deployment | No automated pipeline | ❌ Not done |
-
-## What's Already Implemented (MVP+)
-
-Since initial roadmap, these were added:
-- ✅ JWT authentication (login/logout/me endpoints)
-- ✅ Rate limiting middleware (30 req/min per IP)
-- ✅ Pydantic validation: date format, progress range, task type, HTML sanitization
-- ✅ Dependency cycle detection (DFS)
-- ✅ Task limit (500 max)
-- ✅ JSON file persistence with auto-save on every mutation
-- ✅ Runtime LLM settings (API key, base URL, model)
-- ✅ Toast notification system (frontend)
-- ✅ Confirmation modals (delete all, task removal)
-- ✅ iCal export endpoint
-- ✅ Command Engine (Bag-of-Words parser — 7 commands)
-- ✅ Russian i18n (104 UI strings)
-- ✅ Unit tests: Vitest (frontend), Pytest (backend)
-- ✅ Kubernetes manifests (deployments, services, HPA, PDB, Ingress)
-- ✅ Example projects (4 Excel samples)
-- ✅ Settings modal for LLM config
-- ✅ Auth modal for login
-- ✅ Context menu, suggestions panel
+| Area | Shortcut | Impact |
+|------|----------|--------|
+| Storage | In-memory store + JSON file | Data loss on concurrent writes, no ACID |
+| Auth | Basic JWT only | No OAuth2/Keycloak, no multi-user roles |
+| Date Validation | No date range checks | End before start possible |
+| Pagination | None | All tasks in one response |
+| Frontend | No error boundaries | White screen on JS error |
+| E2E Testing | None | Regressions undetected |
+| CORS | Defaults to `*` | Open to any origin in default config |
+| Secrets | Env vars only | Key exposure risk |
+| WebSocket | Echo-only endpoint | No real real-time sync |
+| Logging | No structured logs | Impossible to debug production issues |
+| Monitoring | No metrics | Blind to errors/performance |
+| CI/CD | Manual deployment | No automated pipeline |
 
 ## What's Missing for Production
 
@@ -82,9 +60,8 @@ Since initial roadmap, these were added:
 | **OpenAI API downtime** | Medium | High | Fallback to manual editing, retry logic, command engine works offline |
 | **Token theft** — JWT without HTTPS | Medium | Critical | Enforce TLS in production |
 | **Concurrent edits** — two users modify same task | Low | Medium | Optimistic locking with DB version column |
-| **XSS via task names** | Low | Medium | HTML sanitization already in Pydantic models |
 
-## Priority Order (Updated)
+## Priority Order
 
 ```
  1. Database (PostgreSQL)              ████████  HIGH — 3-5 days
@@ -119,7 +96,6 @@ Since initial roadmap, these were added:
 
 ## Quick Wins (Can be done in parallel, < 2 days each)
 
-These can be done immediately while Phase 1 is in progress:
 - [ ] Date range validation in `TaskBase` validator
 - [ ] React error boundaries in `App.tsx`
 - [ ] Default `CORS_ORIGINS` to empty string instead of `*`
