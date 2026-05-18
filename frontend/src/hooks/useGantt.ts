@@ -23,7 +23,6 @@ export function useGantt(
   onTaskClick?: (task: Task) => void,
   onContextMenu?: (task: Task, e: React.MouseEvent | MouseEvent) => void
 ) {
-  const zoomRef = useRef<d3.ZoomBehavior<any, unknown> | null>(null);
   const isInitialRender = useRef(true);
 
   // Stable refs for callbacks
@@ -33,6 +32,8 @@ export function useGantt(
   onTaskUpdateRef.current = onTaskUpdate;
   onTaskClickRef.current = onTaskClick;
   onContextMenuRef.current = onContextMenu;
+
+  const panRef = useRef<{ tx: number; ty: number; k: number }>({ tx: 0, ty: 0, k: 1 });
 
   const render = useCallback(() => {
     if (!svgRef.current) return;
@@ -119,7 +120,7 @@ export function useGantt(
       })
       .on('drag', function (event, d) {
         if (d.type === 'milestone') return;
-        const zoomScale = (svgRef.current as any).__zoom?.k ?? 1;
+        const zoomScale = panRef.current.k;
         const pixelsPerDay = (W / visibleDays) * zoomScale;
         const daysDelta = Math.round(event.dx / pixelsPerDay);
         const startDate = d3.timeDay.offset(new Date(d.start_date), daysDelta);
@@ -142,7 +143,7 @@ export function useGantt(
         if (d.type === 'milestone' || !onTaskUpdateRef.current) return;
         event.sourceEvent.stopPropagation();
         
-        const zoomScale = (svgRef.current as any).__zoom?.k ?? 1;
+        const zoomScale = panRef.current.k;
         const pixelsPerDay = (W / visibleDays) * zoomScale;
         const daysDelta = Math.round(event.dx / pixelsPerDay);
         let startDate = d3.timeDay.offset(new Date(d.start_date), daysDelta);
@@ -314,26 +315,62 @@ export function useGantt(
       });
     });
 
-    // Zoom behavior — attached to pan area only
-    if (!zoomRef.current) {
-      zoomRef.current = d3.zoom<Element, unknown>()
-        .scaleExtent([0.3, 5])
-        .on('zoom', e => {
-          d3.select(svgRef.current).select('.gantt-content')
-            .attr('transform', `translate(${MARGIN.left + e.transform.x},${MARGIN.top + e.transform.y}) scale(${e.transform.k})`);
-          d3.select(svgRef.current).select('.axis-group')
-            .attr('transform', `translate(${MARGIN.left + e.transform.x},${MARGIN.top}) scale(${e.transform.k}, 1)`);
-        });
-    }
-    // Attach to pan area, not whole SVG, so drag on bars works
+    // Zoom & pan behavior — attached to pan area only
     const panArea = g.select('.pan-area');
-    if (!panArea.empty()) panArea.call(zoomRef.current);
+    if (!panArea.empty()) {
+      const svg = svgRef.current;
+      panArea
+        .on('mousedown.pan', function(event) {
+          const p = panRef.current;
+          const startX = event.clientX - p.tx;
+          const startY = event.clientY - p.ty;
+          const svgNode = svg!;
+          const onMove = (e: MouseEvent) => {
+            p.tx = e.clientX - startX;
+            p.ty = e.clientY - startY;
+            d3.select(svgNode).select('.gantt-content')
+              .attr('transform', `translate(${MARGIN.left + p.tx},${MARGIN.top + p.ty}) scale(${p.k})`);
+            d3.select(svgNode).select('.axis-group')
+              .attr('transform', `translate(${MARGIN.left + p.tx},${MARGIN.top}) scale(${p.k}, 1)`);
+          };
+          const onUp = () => {
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+          };
+          window.addEventListener('mousemove', onMove);
+          window.addEventListener('mouseup', onUp);
+          event.preventDefault();
+        });
+
+      const panNode = panArea.node();
+      if (panNode) (panNode as HTMLElement).addEventListener('wheel', (event: Event) => {
+        const e = event as WheelEvent;
+        e.preventDefault();
+        const p = panRef.current;
+        const delta = -e.deltaY * (e.deltaMode === 1 ? 0.05 : e.deltaMode === 2 ? 1.0 : 0.002);
+        const newK = Math.min(5, Math.max(0.3, p.k * (1 + delta)));
+        const svgRect = svg!.getBoundingClientRect();
+        const cx = e.clientX - svgRect.left;
+        const cy = e.clientY - svgRect.top;
+        p.tx = cx - (cx - p.tx) * (newK / p.k);
+        p.ty = cy - (cy - p.ty) * (newK / p.k);
+        p.k = newK;
+        d3.select(svg!).select('.gantt-content')
+          .attr('transform', `translate(${MARGIN.left + p.tx},${MARGIN.top + p.ty}) scale(${p.k})`);
+        d3.select(svg!).select('.axis-group')
+          .attr('transform', `translate(${MARGIN.left + p.tx},${MARGIN.top}) scale(${p.k}, 1)`);
+      }, { passive: false });
+    }
   }, [tasks, visibleDays, svgRef]);
 
   useEffect(() => {
-    // Reset zoom when visibleDays changes
-    if (svgRef.current && zoomRef.current) {
-      d3.select(svgRef.current).call(zoomRef.current.transform, d3.zoomIdentity);
+    // Reset pan/zoom when visibleDays changes
+    panRef.current = { tx: 0, ty: 0, k: 1 };
+    if (svgRef.current) {
+      d3.select(svgRef.current).select('.gantt-content')
+        .attr('transform', `translate(${MARGIN.left},${MARGIN.top}) scale(1)`);
+      d3.select(svgRef.current).select('.axis-group')
+        .attr('transform', `translate(${MARGIN.left},${MARGIN.top}) scale(1, 1)`);
     }
   }, [visibleDays]);
 

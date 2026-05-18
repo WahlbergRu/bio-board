@@ -146,7 +146,7 @@ export default function App() {
           {unsaved && <div className="unsaved-warning">⚠️ Есть несохранённые изменения</div>}
         </div>
         <div className="app-sidebar">
-          <ChatPanel messages={chatMessages} onMessagesChange={m => useStore.getState().setMessages(m)}
+           <ChatPanel messages={chatMessages} onMessagesChange={m => useStore.getState().setMessages(m)}
             isAuthenticated={isAuthenticated} onComplete={refreshTasks} />
         </div>
       </div>

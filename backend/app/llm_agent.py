@@ -172,6 +172,40 @@ class LLMAgent:
         except Exception as exc:
             yield f"[LLM Error] {exc}"
 
+    async def direct_chat(
+        self,
+        user_message: str,
+        plan_context: str,
+    ) -> AsyncGenerator[str, None]:
+        """Free-form LLM chat — no JSON, no tool calls, just conversation."""
+        system = (
+            "You are an AI Gantt chart planning assistant. "
+            "Answer the user's questions about their project plan. "
+            "You can analyze risks, give advice, explain the plan, "
+            "but DO NOT use tool calls — just answer in plain text.\n\n"
+            "RULES:\n"
+            "- Respond in Russian (same language as user)\n"
+            "- Be concise and helpful\n"
+            "- Reference tasks by name when relevant\n"
+            "- If asked to make changes, explain what SHOULD be done but don't execute tools\n\n"
+            f"Current plan state:\n{plan_context}"
+        )
+
+        messages = [{"role": "system", "content": system}, {"role": "user", "content": user_message}]
+
+        try:
+            stream = await self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                stream=True,
+            )
+            async for chunk in stream:
+                delta = chunk.choices[0].delta if chunk.choices else None
+                if delta and delta.content:
+                    yield delta.content
+        except Exception as exc:
+            yield f"[LLM Error] {exc}"
+
     async def chat_with_store(
         self,
         messages: list[dict],

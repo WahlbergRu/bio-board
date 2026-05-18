@@ -51,7 +51,7 @@ async def upload_excel(file: UploadFile, store: PlanState = Depends(get_store)):
     creates = _rows_to_creates(rows)
     for tc in creates:
         store.create_task(tc)
-    return {"imported": len(creates)}
+    return {"count": len(creates)}
 
 
 @router.get("/export")

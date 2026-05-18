@@ -29,13 +29,6 @@ export const COMMANDS: CommandDef[] = [
     description: "Дублировать задачу (пр.: Тест скопируй)",
   },
   {
-    id: "delete",
-    label: "Удалить задачу",
-    template: "{name} удали",
-    keywords: ["удали", "убери", "delete", "remove"],
-    description: "Удалить задачу (пр.: Тест удали)",
-  },
-  {
     id: "assign",
     label: "Назначить исполнителя",
     template: "{name} назначь {person}",
@@ -55,5 +48,19 @@ export const COMMANDS: CommandDef[] = [
     template: "{name} связана с {dep}",
     keywords: ["свяжи", "связана", "связан", "зависит", "привяжи"],
     description: "Связать две задачи (пр.: Тест связана с Backend)",
+  },
+  {
+    id: "delete",
+    label: "Удалить задачу",
+    template: "{name} удали",
+    keywords: ["удали", "убери", "delete", "remove"],
+    description: "Удалить задачу (пр.: Тест удали)",
+  },
+  {
+    id: "llm",
+    label: "Спросить LLM",
+    template: "/llm {text}",
+    keywords: ["llm", "ai", "спроси", "чат", "вопрос", "расскажи"],
+    description: "Прямой запрос к LLM (напр.: /llm какие риски у проекта?)",
   },
 ];

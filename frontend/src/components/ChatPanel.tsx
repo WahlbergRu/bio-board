@@ -10,7 +10,7 @@ import SuggestionsPanel from './SuggestionsPanel';
 interface Props {
   messages: ChatMessage[];
   onMessagesChange: (msgs: ChatMessage[]) => void;
-  isAuthenticated: boolean;
+  isAuthenticated?: boolean;
   onComplete?: () => void;
 }
 
@@ -38,7 +38,7 @@ function extractCopiedTaskName(response: string): string | null {
   return m ? m[1] : null;
 }
 
-export default function ChatPanel({ messages, onMessagesChange, isAuthenticated, onComplete }: Props) {
+export default function ChatPanel({ messages, onMessagesChange, isAuthenticated = false, onComplete }: Props) {
   const lastAddedTaskName = useStore(s => s.lastAddedTaskName);
   const setLastAddedTaskName = useStore(s => s.setLastAddedTaskName);
 
@@ -66,6 +66,12 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
     if (value.indexOf('/') === 0) {
       setCommandFilter(value.slice(1));
       setShowCommands(true);
+      // Auto-close overlay after user picks a command and types more text
+      // (space after /llm means they're typing the question, not selecting)
+      const parts = value.split(/\s+/);
+      if (parts.length >= 2 && value.includes('/llm')) {
+        setShowCommands(false);
+      }
     } else {
       setShowCommands(false);
       setCommandFilter('');
@@ -229,6 +235,16 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated,
         <div ref={endRef} />
       </div>
       <div style={{ padding: '8px 12px', borderTop: '1px solid #333', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {!isAuthenticated && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
+            background: '#2a1a1a', border: '1px solid #5a3030', borderRadius: 6,
+            fontSize: 11, color: '#ff8888',
+          }}>
+            <span>🔒</span>
+            <span>Войдите для использования AI-чата</span>
+          </div>
+        )}
         <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
           <button
             onClick={handleCommandsButtonClick}

@@ -32,8 +32,9 @@ export default function ExcelHandler({ onUpload, onExport, onExportIcal }: Props
     setProgress(ui.parsing);
     try {
       const result = await uploadExcel(file);
-      setProgress(ui.uploadSuccess.replace('{count}', String(result.count)));
-      onUpload(result.count);
+      const count = result.count ?? 0;
+      setProgress(ui.uploadSuccess.replace('{count}', String(count)));
+      onUpload(count);
     } catch {
       setProgress(ui.uploadError);
     } finally {

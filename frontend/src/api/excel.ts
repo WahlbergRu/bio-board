@@ -5,7 +5,8 @@ export async function uploadExcel(file: File): Promise<{ count: number }> {
   const fd = new FormData();
   fd.append('file', file);
   const res = await client.post('/excel/upload', fd);
-  return res.data;
+  const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+  return { count: data.count ?? data.imported ?? 0 };
 }
 
 export function exportExcel() {
