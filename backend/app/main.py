@@ -3,21 +3,19 @@
 import os
 import time
 import json
+import hashlib
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import jwt
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from passlib.context import CryptContext
 
 from app.llm_agent import LLMAgent
 from app.mcp_server import get_mcp_app
 from app.models import TokenResponse, LoginRequest
 from app.store import PlanState
 from app.routes import tasks, chat, excel, plan, settings
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 DATA_DIR = Path(os.getenv("DATA_DIR", "/app/data"))
 JWT_SECRET = os.getenv("JWT_SECRET")
@@ -103,7 +101,7 @@ async def rate_limit_middleware(request: Request, call_next):
 @app.post("/api/auth/login", response_model=TokenResponse)
 async def login(req: LoginRequest):
     # In production, check against hashed passwords from DB
-    if req.username == _ADMIN_USER and pwd_context.verify(req.password, app.state.admin_hash):
+    if req.username == _ADMIN_USER and hashlib.sha256(req.password.encode()).hexdigest() == app.state.admin_hash:
         return TokenResponse(access_token=_make_token(req.username))
     raise HTTPException(401, "Invalid credentials")
 
@@ -147,4 +145,4 @@ async def health():
 
 
 # Hash admin password at module load time
-app.state.admin_hash = pwd_context.hash(_ADMIN_PASS)
+app.state.admin_hash = hashlib.sha256(_ADMIN_PASS.encode()).hexdigest()

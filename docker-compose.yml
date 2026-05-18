@@ -4,9 +4,12 @@ services:
     ports:
       - "8400:8000"
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
-      - OPENAI_MODEL=${OPENAI_MODEL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-placeholder}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://coding-intl.dashscope.aliyuncs.com/v1}
+      - OPENAI_MODEL=${OPENAI_MODEL:-kimi-k2.5}
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-do-not-use-in-production}
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      - ADMIN_PASS=${ADMIN_PASS:-admin}
     volumes:
       - ./workspace/data:/app/data
 
