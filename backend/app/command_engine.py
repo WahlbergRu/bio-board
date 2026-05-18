@@ -98,8 +98,13 @@ class CommandEngine:
         intent: dict = {}
 
         # 1. Detect Action
+        # Check for date patterns: YYYY-MM-DD or DD-MM-YYYY
+        has_iso_date = bool(re.search(r"\d{4}-\d{2}-\d{2}", msg))
+        has_euro_date = bool(re.search(r"\d{1,2}-\d{2}-\d{4}", msg))
+        
         if any(w in words for w in _SHIFT_KEYWORDS):
-            intent["action"] = "move" if re.search(r"\d{4}-\d{2}-\d{2}", msg) else "shift_tree"
+            # If there's a date pattern, it's "move to date", not "shift by N days"
+            intent["action"] = "move" if (has_iso_date or has_euro_date) else "shift_tree"
         elif any(w in words for w in _COPY_KEYWORDS):
             intent["action"] = "copy"
         elif any(w in words for w in _DELETE_KEYWORDS):

@@ -136,82 +136,6 @@ When fast parser doesn't recognize the command, it falls back to LLM for:
 | `POST` | `/auth/logout` | JWT logout |
 | `POST` | `/mcp` | MCP protocol endpoint |
 
-## Project Structure
-
-```
-biotech/
-├── backend/
-│   ├── app/
-│   │   ├── main.py              # FastAPI app, CORS, lifespan, auth
-│   │   ├── models.py            # Pydantic models
-│   │   ├── store.py             # In-memory task store + JSON persistence
-│   │   ├── llm_agent.py         # OpenAI integration
-│   │   ├── command_engine.py    # Bag-of-Words command parser
-│   │   ├── mcp_server.py        # MCP protocol server
-│   │   ├── excel_service.py     # Excel parse/export
-│   │   └── routes/
-│   │       ├── tasks.py         # Task CRUD
-│   │       ├── chat.py          # AI chat SSE
-│   │       ├── excel.py         # Import/export (xlsx, ical)
-│   │       ├── plan.py          # Plan seed/reset/save
-│   │       └── settings.py      # Runtime LLM config
-│   ├── tests/                   # Pytest test suite
-│   ├── pyproject.toml           # Dependencies (hatch)
-│   └── Dockerfile
-├── frontend/
-│   ├── src/
-│   │   ├── App.tsx
-│   │   ├── main.tsx
-│   │   ├── i18n.ts              # Russian UI localization
-│   │   ├── store/index.ts       # Zustand store
-│   │   ├── types/index.ts       # TypeScript types
-│   │   ├── api/                 # API client modules
-│   │   ├── hooks/useGantt.ts    # D3 hook
-│   │   ├── styles/              # CSS styles
-│   │   └── components/
-│   │       ├── GanttView.tsx
-│   │       ├── KanbanView.tsx
-│   │       ├── ChatPanel.tsx
-│   │       ├── CommandOverlay.tsx    # Command palette overlay
-│   │       ├── SuggestionsPanel.tsx  # AI suggestions
-│   │       ├── TaskFormModal.tsx     # Task create/edit form
-│   │       ├── TaskModal.tsx
-│   │       ├── CreateTaskModal.tsx
-│   │       ├── ContextMenu.tsx       # Right-click context menu
-│   │       ├── ConfirmModal.tsx      # Confirmation dialogs
-│   │       ├── Notification.tsx      # Toast notifications
-│   │       ├── SettingsModal.tsx     # LLM settings UI
-│   │       ├── AuthModal.tsx         # Login modal
-│   │       ├── ExcelHandler.tsx
-│   │       ├── Header.tsx
-│   │       └── ViewSwitcher.tsx
-│   ├── test/                    # Vitest test suite
-│   ├── nginx.conf
-│   ├── Dockerfile
-│   └── vite.config.ts
-├── k8s/                         # Kubernetes manifests
-│   ├── backend-deployment.yaml
-│   ├── frontend-deployment.yaml
-│   ├── backend-service.yaml
-│   ├── frontend-service.yaml
-│   ├── ingress.yaml
-│   ├── configmap.yaml
-│   ├── secret.yaml
-│   ├── hpa.yaml                 # Horizontal Pod Autoscaler
-│   ├── pdb.yaml                 # Pod Disruption Budget
-│   └── kustomization.yaml
-├── examples/                    # Sample Excel projects
-│   ├── simple_pipeline.xlsx
-│   ├── parallel_modules.xlsx
-│   ├── complex_project.xlsx
-│   └── no_dependencies.xlsx
-├── brainstorm/                  # Brainstorm pipeline outputs
-├── workspace/                   # Working directory (temp files)
-├── docker-compose.yml
-├── .env.example
-└── generate_samples.py          # Sample Excel generator
-```
-
 ## Testing
 
 ```bash
@@ -262,9 +186,11 @@ All AI-generated code was reviewed and adjusted for correctness.
 
 ## Demo
 
-> **Placeholder** — add a screen recording showing:
-> 1. Upload `sample_tasks.xlsx` via Excel import
-> 2. Edit plan via AI chat: *"Move Backend Development to start July 1st"*
-> 3. Export updated plan as Excel
+![AI Gantt Planner — functions demo](functions.gif)
+
+> **AI Gantt Planner** — планируйте проекты через чат. Добавляйте задачи, сдвигайте даты, управляйте зависимостями — всё на естественном языке.
 >
-> ![Demo GIF placeholder](docs/demo.gif)
+> - **Импорт/экспорт Excel** — загрузите готовый план или выгрузите результат
+> - **AI-чат** — управляйте планом командами на русском: *"сдвинь Backend на 3 дня"*, *"добавь задачу Тест"*
+> - **Диаграмма Ганта + Канбан** — два режима просмотра с drag-and-drop
+> - **Автосохранение** — план сохраняется автоматически
