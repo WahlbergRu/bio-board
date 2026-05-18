@@ -28,12 +28,12 @@ _LINK_KEYWORDS = frozenset({
     "привяжи", "привязан", "привязана", "привязаны",
 })
 
-# ── Action detection keywords ────────────────────────────────────
-_SHIFT_KEYWORDS = frozenset({"сдвинь", "shift", "move", "перенеси", "двигай", "сдвинуть"})
-_COPY_KEYWORDS = frozenset({"скопируй", "copy", "duplicate", "клон", "дублируй", "клонируй"})
-_DELETE_KEYWORDS = frozenset({"удали", "delete", "remove", "убери"})
-_ASSIGN_KEYWORDS = frozenset({"назначь", "assign", "ответственный", "исполнитель"})
-_CREATE_KEYWORDS = frozenset({"добавь", "создай", "new", "create", "создать"})
+# ─ Action detection keywords ────────────────────────────────────
+_SHIFT_KEYWORDS = frozenset({"сдвинь", "shift", "move", "перенеси", "двигай", "сдвинуть", "сдвигай", "перенести"})
+_COPY_KEYWORDS = frozenset({"скопируй", "copy", "duplicate", "клон", "дублируй", "клонируй", "скопировать", "дублировать"})
+_DELETE_KEYWORDS = frozenset({"удали", "delete", "remove", "убери", "удалить"})
+_ASSIGN_KEYWORDS = frozenset({"назначь", "assign", "ответственный", "исполнитель", "назначить"})
+_CREATE_KEYWORDS = frozenset({"добавь", "создай", "new", "create", "создать", "добавить"})
 
 
 def _default_dates() -> tuple[str, str]:

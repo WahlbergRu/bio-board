@@ -118,11 +118,9 @@ export default function ChatPanel({ messages, onMessagesChange, isAuthenticated 
     setShowCommands(false);
     setCommandFilter('');
     const userMsg: ChatMessage = { role: 'user', content: msg, timestamp: new Date().toISOString() };
-    const newHistory = overrideMsg ? messages : [...messages, userMsg];
-    if (!overrideMsg) {
-      onMessagesChange(newHistory);
-      setInput('');
-    }
+    const newHistory = [...messages, userMsg];
+    onMessagesChange(newHistory);
+    if (!overrideMsg) setInput('');
     setLoading(true);
     if (!overrideMsg) setSuggestions(null);
 
